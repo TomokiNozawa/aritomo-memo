@@ -799,9 +799,17 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close
 
 // ── Add Modal ──
 function openAddModal() {
-  if (currentTab === 'calendar') openAddEvent();
+  if (currentTab === 'calendar') openCalendarAddMenu();
   else if (currentTab === 'list') openAddList();
   else if (currentTab === 'places') openAddPlace();
+}
+
+function openCalendarAddMenu() {
+  var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+  html += '<button class="btn-primary" onclick="closeModal();openAddEvent();" style="padding:16px;font-size:15px;">📅 予定を追加</button>';
+  html += '<button class="btn-secondary" onclick="closeModal();openAddList();" style="padding:16px;font-size:15px;">📋 リストに追加</button>';
+  html += '</div>';
+  openModal('何を追加する？', html);
 }
 
 // Event modals
