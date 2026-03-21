@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>(テスト)メモアプリ</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0a0e14;
+  --bg-secondary: #0d1117;
+  --bg-card: #151b23;
+  --bg-card-hover: #1a2230;
+  --bg-input: #1a2230;
+  --border: #253040;
+  --border-light: #1e2a38;
+  --text-primary: #e8edf4;
+  --text-secondary: #8b95a5;
+  --text-muted: #5c6878;
+  --accent: #FF8FAB;
+  --accent-dark: #E91E63;
+  --accent-green: #42c760;
+  --accent-red: #f85149;
+  --accent-blue: #5aadff;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.light {
+  --bg-primary: #FFF0F3;
+  --bg-secondary: #FFE8ED;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #FFF5F7;
+  --bg-input: #FFF5F7;
+  --border: #F5C6D0;
+  --border-light: #FADADD;
+  --text-primary: #37474F;
+  --text-secondary: #607080;
+  --text-muted: #90A0B0;
+  --accent: #E91E63;
+  --accent-dark: #C2185B;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── Screens ── */
+.screen { display: none; }
+.screen.active { display: flex; }
+
+/* ── Login ── */
+#loginScreen {
+  flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; min-height: 100dvh; padding: 24px; text-align: center;
+}
+.login-heart { font-size: 48px; margin-bottom: 16px; animation: heartbeat 1.5s infinite; }
+@keyframes heartbeat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+.login-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: var(--accent); }
+.login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; }
+.login-input {
+  width: 100%; max-width: 280px; padding: 14px 18px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-input); color: var(--text-primary);
+  font-size: 16px; font-family: inherit; outline: none; text-align: center;
+  transition: border-color var(--transition);
+}
+.login-input:focus { border-color: var(--accent); }
+.login-input::placeholder { color: var(--text-muted); }
+.login-btn {
+  margin-top: 16px; padding: 14px 48px; border: none; border-radius: var(--radius);
+  background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+  font-family: inherit; cursor: pointer; transition: all var(--transition);
+}
+.login-btn:active { transform: scale(0.96); }
+.login-error { color: var(--accent-red); font-size: 13px; margin-top: 12px; min-height: 20px; }
+
+/* ── Name Select ── */
+#nameScreen {
+  flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; min-height: 100dvh; padding: 24px; text-align: center;
+}
+.name-title { font-size: 20px; font-weight: 600; margin-bottom: 32px; }
+.name-buttons { display: flex; gap: 16px; }
+.name-btn {
+  padding: 20px 36px; border: 2px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--bg-card); color: var(--text-primary); font-size: 18px; font-weight: 600;
+  font-family: inherit; cursor: pointer; transition: all var(--transition); min-width: 120px;
+}
+.name-btn:active { transform: scale(0.96); }
+.name-btn:hover { border-color: var(--accent); background: var(--bg-card-hover); }
+
+/* ── App Shell ── */
+#appScreen { flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+
+/* ── Header ── */
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+}
+.app-header-left { display: flex; align-items: center; gap: 10px; }
+.app-title { font-size: 15px; font-weight: 700; color: var(--accent); }
+.days-counter { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+.app-header-right { display: flex; align-items: center; gap: 8px; }
+.theme-toggle {
+  background: none; border: none; font-size: 18px; cursor: pointer; padding: 6px;
+  border-radius: 8px; transition: all var(--transition); color: var(--text-secondary);
+}
+.theme-toggle:active { background: var(--border-light); }
+.user-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 12px;
+  background: rgba(255,143,171,0.15); color: var(--accent);
+}
+
+/* ── Content ── */
+.app-content { flex: 1; overflow-y: auto; padding: 12px 12px 100px; }
+
+/* ── Bottom Nav ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 900;
+  background: rgba(10,14,20,0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+}
+.light .bottom-nav { background: rgba(255,240,243,0.94); }
+.bottom-nav-inner { display: flex; justify-content: space-around; max-width: 400px; margin: 0 auto; }
+.nav-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  color: var(--text-muted); text-decoration: none; font-size: 10px; font-weight: 500;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: all var(--transition);
+  background: none; border: none; font-family: inherit;
+}
+.nav-tab:active { background: var(--border-light); }
+.nav-tab .nav-icon { font-size: 20px; }
+.nav-tab.active { color: var(--accent); }
+
+/* ── FAB ── */
+.fab {
+  position: fixed; bottom: calc(64px + env(safe-area-inset-bottom)); right: 16px; z-index: 800;
+  width: 52px; height: 52px; border-radius: 50%; border: none;
+  background: var(--accent); color: #fff; font-size: 28px; font-weight: 300;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(255,143,171,0.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.fab:active { transform: scale(0.9); }
+
+/* ── Cards ── */
+.item-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; margin-bottom: 8px; cursor: pointer;
+  transition: all var(--transition); position: relative; overflow: hidden;
+}
+.item-card:active { background: var(--bg-card-hover); }
+.item-card-header { display: flex; align-items: center; gap: 8px; }
+.item-card-title { font-size: 14px; font-weight: 500; flex: 1; }
+.item-card-title.checked { text-decoration: line-through; color: var(--text-muted); }
+.item-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+.item-card-meta span { display: inline-flex; align-items: center; gap: 3px; }
+.check-btn {
+  width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border);
+  background: none; cursor: pointer; flex-shrink: 0; display: flex; align-items: center;
+  justify-content: center; font-size: 12px; color: transparent; transition: all var(--transition);
+}
+.check-btn.checked { border-color: var(--accent-green); background: var(--accent-green); color: #fff; }
+.delete-btn {
+  background: var(--accent-red); color: #fff; border: none; padding: 6px 12px;
+  border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+
+/* ── Filter Chips ── */
+.filter-bar { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
+.filter-chip {
+  padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); font-size: 12px; font-weight: 500;
+  cursor: pointer; white-space: nowrap; font-family: inherit; transition: all var(--transition);
+}
+.filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── Section header ── */
+.section-title { font-size: 13px; font-weight: 600; color: var(--text-muted); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.section-title:first-child { margin-top: 0; }
+.clear-btn {
+  font-size: 11px; color: var(--accent-red); background: none; border: none; cursor: pointer;
+  font-family: inherit; font-weight: 500; float: right; padding: 2px 8px;
+}
+
+/* ── Calendar ── */
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-title { font-size: 18px; font-weight: 700; }
+.cal-nav {
+  background: none; border: none; color: var(--text-secondary); font-size: 20px;
+  cursor: pointer; padding: 8px 12px; border-radius: 8px; font-family: inherit;
+  transition: all var(--transition);
+}
+.cal-nav:active { background: var(--border-light); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 16px; }
+.cal-dow { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 6px 0; }
+.cal-dow:first-child { color: var(--accent-red); }
+.cal-dow:last-child { color: var(--accent-blue); }
+.cal-day {
+  text-align: center; padding: 8px 2px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  cursor: pointer; position: relative; min-height: 40px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; transition: all var(--transition);
+  color: var(--text-primary);
+}
+.cal-day:active { background: var(--border-light); }
+.cal-day.other-month { color: var(--text-muted); opacity: 0.4; }
+.cal-day.today { background: var(--accent); color: #fff; font-weight: 700; border-radius: 50%; }
+.cal-day.selected { outline: 2px solid var(--accent); border-radius: 50%; }
+.cal-day.has-event::after {
+  content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--accent);
+}
+.cal-day.today.has-event::after { background: #fff; }
+.cal-day.has-anniversary::after { background: var(--accent-red); }
+.cal-day.sun { color: var(--accent-red); }
+.cal-day.sat { color: var(--accent-blue); }
+.cal-day.today.sun, .cal-day.today.sat { color: #fff; }
+
+.cal-events { margin-top: 8px; }
+.cal-event-date { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+.anniversary-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px;
+  background: rgba(255,143,171,0.12); color: var(--accent); font-size: 12px; font-weight: 500;
+  margin-bottom: 6px;
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: flex-end;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; animation: fadeIn 0.15s ease; }
+.modal {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 20px;
+  width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg); animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close {
+  background: none; border: none; color: var(--text-muted); font-size: 22px;
+  cursor: pointer; padding: 4px 8px; border-radius: var(--radius);
+}
+.modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+.modal-actions button { flex: 1; }
+.btn-primary {
+  padding: 12px; border: none; border-radius: var(--radius); background: var(--accent);
+  color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.btn-secondary {
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-card); color: var(--text-primary); font-size: 14px; font-weight: 500;
+  cursor: pointer; font-family: inherit;
+}
+.btn-danger {
+  padding: 12px; border: none; border-radius: var(--radius); background: var(--accent-red);
+  color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+
+/* ── Form ── */
+.form-group { margin-bottom: 12px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-input); color: var(--text-primary); font-size: 14px; font-family: inherit;
+  outline: none; transition: border-color var(--transition);
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+.form-textarea { resize: vertical; min-height: 60px; }
+.form-select { appearance: none; cursor: pointer; }
+.form-row { display: flex; gap: 8px; }
+.form-row .form-group { flex: 1; }
+
+/* ── Empty State ── */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+.empty-state-icon { font-size: 40px; margin-bottom: 8px; }
+.empty-state-text { font-size: 13px; }
+
+/* ── Responsive ── */
+@media (min-width: 768px) {
+  .app-content { max-width: 600px; margin: 0 auto; padding: 20px 20px 100px; }
+  .modal { border-radius: var(--radius-lg); align-self: center; }
+  .item-card:hover { background: var(--bg-card-hover); transform: translateY(-1px); box-shadow: var(--shadow); }
+}
+@media (min-width: 1024px) {
+  body { display: flex; }
+  .side-nav {
+    display: flex !important; flex-direction: column; width: 200px; min-height: 100vh;
+    background: var(--bg-secondary); border-right: 1px solid var(--border); padding: 20px 12px;
+    position: fixed; left: 0; top: 0; bottom: 0;
+  }
+  .side-nav-title { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 4px; padding: 0 8px; }
+  .side-nav-days { font-size: 11px; color: var(--text-muted); margin-bottom: 20px; padding: 0 8px; }
+  .side-nav-item {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius);
+    color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all var(--transition); background: none; border: none; width: 100%; font-family: inherit; text-align: left;
+  }
+  .side-nav-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .side-nav-item.active { background: rgba(255,143,171,0.1); color: var(--accent); }
+  .side-nav-item .nav-icon { font-size: 16px; }
+  .side-nav-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
+  #appScreen { margin-left: 200px; }
+  .app-header { display: none !important; }
+  .bottom-nav { display: none !important; }
+  .fab { bottom: 24px; }
+  .app-content { max-width: 700px; padding: 24px 24px 80px; }
+}
+.side-nav { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="screen active" id="loginScreen">
+  <div class="login-heart">♥</div>
+  <div class="login-title">(テスト)メモ</div>
+  <div class="login-sub">ふたりだけの場所</div>
+  <input type="password" class="login-input" id="passwordInput" placeholder="パスワード" autocomplete="current-password">
+  <button class="login-btn" id="loginBtn" onclick="doLogin()">ログイン</button>
+  <div class="login-error" id="loginError"></div>
+</div>
+
+<!-- Name Select Screen -->
+<div class="screen" id="nameScreen">
+  <div class="login-heart">♥</div>
+  <div class="name-title">あなたはどっち？</div>
+  <div class="name-buttons">
+    <button class="name-btn" onclick="selectName('有彩')">有彩</button>
+    <button class="name-btn" onclick="selectName('朝輝')">朝輝</button>
+  </div>
+</div>
+
+<!-- App Screen -->
+<div class="screen" id="appScreen">
+  <!-- Side Nav (desktop) -->
+  <nav class="side-nav" id="sideNav">
+    <div class="side-nav-title">(テスト)メモ</div>
+    <div class="side-nav-days" id="sideNavDays"></div>
+    <button class="side-nav-item active" onclick="switchTab('calendar')"><span class="nav-icon">📅</span>カレンダー</button>
+    <button class="side-nav-item" onclick="switchTab('list')"><span class="nav-icon">📋</span>リスト</button>
+    <button class="side-nav-item" onclick="switchTab('places')"><span class="nav-icon">📍</span>行きたいところ</button>
+    <div class="side-nav-bottom">
+      <button class="side-nav-item" onclick="toggleTheme()"><span class="nav-icon" id="sideThemeIcon">🌙</span>テーマ切替</button>
+      <button class="side-nav-item" onclick="doLogout()"><span class="nav-icon">🚪</span>ログアウト</button>
+    </div>
+  </nav>
+
+  <!-- Header (mobile) -->
+  <header class="app-header">
+    <div class="app-header-left">
+      <span class="app-title">(テスト)メモ</span>
+      <span class="days-counter" id="headerDays"></span>
+    </div>
+    <div class="app-header-right">
+      <span class="user-badge" id="userBadge"></span>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
+    </div>
+  </header>
+
+  <!-- Tab Content -->
+  <div class="app-content" id="appContent"></div>
+
+  <!-- FAB -->
+  <button class="fab" id="fab" onclick="openAddModal()">+</button>
+
+  <!-- Bottom Nav (mobile) -->
+  <nav class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="nav-tab active" onclick="switchTab('calendar')"><span class="nav-icon">📅</span>カレンダー</button>
+      <button class="nav-tab" onclick="switchTab('list')"><span class="nav-icon">📋</span>リスト</button>
+      <button class="nav-tab" onclick="switchTab('places')"><span class="nav-icon">📍</span>場所</button>
+    </div>
+  </nav>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+// ── Config ──
+firebase.initializeApp({
+  apiKey: "AIzaSyD8o-Ca5r6uLOdkJnTVBkt3XXQ9Wdc5lkk",
+  authDomain: "aritomo-memo.firebaseapp.com",
+  databaseURL: "https://aritomo-memo-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "aritomo-memo",
+  storageBucket: "aritomo-memo.firebasestorage.app",
+  messagingSenderId: "608761131258",
+  appId: "1:608761131258:web:8537f715b597981d301943"
+});
+var db = firebase.database();
+var auth = firebase.auth();
+var SHARED_EMAIL = 'aritomo@test.app';
+
+// ── Anniversary Data (hardcoded) ──
+var ANNIVERSARIES = [
+  { name: '朝輝 誕生日', month: 7, day: 2, emoji: '🎂' },
+  { name: '有彩 誕生日', month: 2, day: 11, emoji: '🎂' },
+  { name: '交際記念日', month: 3, day: 16, emoji: '💕' },
+  { name: '婚約記念日', month: 3, day: 5, emoji: '💍' },
+  // { name: '結婚記念日', month: 11, day: 22, emoji: '💒' }, // 予定
+  { name: 'バレンタイン', month: 2, day: 14, emoji: '🍫' },
+  { name: 'ホワイトデー', month: 3, day: 14, emoji: '🍬' },
+  { name: 'クリスマス', month: 12, day: 25, emoji: '🎄' }
+];
+var START_DATE = new Date(2025, 2, 16); // 2025-03-16
+
+// ── State ──
+var currentTab = 'calendar';
+var currentUser = localStorage.getItem('aritomo_user') || '';
+var calYear, calMonth, calSelectedDate;
+var listData = [], eventsData = [], placesData = [];
+var listFilter = 'all';
+
+// ── Auth ──
+auth.onAuthStateChanged(function(user) {
+  if (user) {
+    if (currentUser) { showApp(); } else { showScreen('nameScreen'); }
+  } else {
+    showScreen('loginScreen');
+  }
+});
+
+function doLogin() {
+  var pw = document.getElementById('passwordInput').value;
+  var err = document.getElementById('loginError');
+  err.textContent = '';
+  auth.signInWithEmailAndPassword(SHARED_EMAIL, pw).catch(function(e) {
+    err.textContent = 'パスワードが違います';
+  });
+}
+document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogout() {
+  auth.signOut();
+}
+
+function selectName(name) {
+  currentUser = name;
+  localStorage.setItem('aritomo_user', name);
+  showApp();
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Theme ──
+var isDark = localStorage.getItem('aritomo_theme') !== 'light';
+applyTheme();
+function toggleTheme() {
+  isDark = !isDark;
+  localStorage.setItem('aritomo_theme', isDark ? 'dark' : 'light');
+  applyTheme();
+}
+function applyTheme() {
+  document.body.classList.toggle('light', !isDark);
+  var icon = isDark ? '🌙' : '☀️';
+  var t = document.getElementById('themeToggle'); if (t) t.textContent = icon;
+  var s = document.getElementById('sideThemeIcon'); if (s) s.textContent = icon;
+  var mc = document.querySelector('meta[name="theme-color"]');
+  if (mc) mc.content = isDark ? '#0a0e14' : '#FFF0F3';
+}
+
+// ── Days Counter ──
+function getDaysCount() {
+  var now = new Date(); now.setHours(0,0,0,0);
+  var start = new Date(START_DATE); start.setHours(0,0,0,0);
+  return Math.floor((now - start) / 86400000) + 1;
+}
+
+// ── Show App ──
+function showApp() {
+  showScreen('appScreen');
+  var days = getDaysCount();
+  var daysText = '♥ ' + days + '日目';
+  var hd = document.getElementById('headerDays'); if (hd) hd.textContent = daysText;
+  var sd = document.getElementById('sideNavDays'); if (sd) sd.textContent = daysText;
+  var ub = document.getElementById('userBadge'); if (ub) ub.textContent = currentUser;
+
+  var now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  calSelectedDate = formatDate(now);
+
+  startListeners();
+  renderTab();
+}
+
+// ── Firebase Listeners ──
+var listenersStarted = false;
+function startListeners() {
+  if (listenersStarted) return;
+  listenersStarted = true;
+  db.ref('events').on('value', function(snap) {
+    eventsData = [];
+    snap.forEach(function(c) { eventsData.push(Object.assign({ id: c.key }, c.val())); });
+    if (currentTab === 'calendar') renderTab();
+  });
+  db.ref('list').on('value', function(snap) {
+    listData = [];
+    snap.forEach(function(c) { listData.push(Object.assign({ id: c.key }, c.val())); });
+    if (currentTab === 'list') renderTab();
+  });
+  db.ref('places').on('value', function(snap) {
+    placesData = [];
+    snap.forEach(function(c) { placesData.push(Object.assign({ id: c.key }, c.val())); });
+    if (currentTab === 'places' || currentTab === 'calendar') renderTab();
+  });
+}
+
+// ── Tab Switching ──
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t) {
+    if (t.textContent.trim().match(tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : /場所/)) t.classList.add('active');
+  });
+  document.querySelectorAll('.side-nav-item').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.side-nav-item').forEach(function(t) {
+    if (t.textContent.trim().match(tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : /行きたい/)) t.classList.add('active');
+  });
+  renderTab();
+}
+
+// ── Render ──
+function renderTab() {
+  var c = document.getElementById('appContent');
+  if (currentTab === 'calendar') renderCalendar(c);
+  else if (currentTab === 'list') renderList(c);
+  else if (currentTab === 'places') renderPlaces(c);
+}
+
+// ── Calendar ──
+function renderCalendar(container) {
+  var html = '<div class="cal-header">';
+  html += '<button class="cal-nav" onclick="calNav(-1)">&lsaquo;</button>';
+  html += '<span class="cal-title">' + calYear + '年 ' + (calMonth + 1) + '月</span>';
+  html += '<button class="cal-nav" onclick="calNav(1)">&rsaquo;</button>';
+  html += '</div>';
+
+  html += '<div class="cal-grid">';
+  var dows = ['日','月','火','水','木','金','土'];
+  for (var i = 0; i < 7; i++) html += '<div class="cal-dow">' + dows[i] + '</div>';
+
+  var first = new Date(calYear, calMonth, 1);
+  var startDay = first.getDay();
+  var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  var prevDays = new Date(calYear, calMonth, 0).getDate();
+
+  for (var d = 0; d < startDay; d++) {
+    html += '<div class="cal-day other-month">' + (prevDays - startDay + d + 1) + '</div>';
+  }
+  var today = formatDate(new Date());
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dateStr = formatDate(new Date(calYear, calMonth, d));
+    var dow = new Date(calYear, calMonth, d).getDay();
+    var cls = 'cal-day';
+    if (dow === 0) cls += ' sun';
+    if (dow === 6) cls += ' sat';
+    if (dateStr === today) cls += ' today';
+    if (dateStr === calSelectedDate) cls += ' selected';
+    if (hasEventOnDate(dateStr)) cls += ' has-event';
+    if (hasAnniversaryOnDate(calMonth + 1, d)) cls += ' has-anniversary';
+    html += '<div class="' + cls + '" onclick="selectDate(\'' + dateStr + '\')">' + d + '</div>';
+  }
+  var remaining = 7 - ((startDay + daysInMonth) % 7);
+  if (remaining < 7) {
+    for (var d = 1; d <= remaining; d++) {
+      html += '<div class="cal-day other-month">' + d + '</div>';
+    }
+  }
+  html += '</div>';
+
+  // Selected date events
+  if (calSelectedDate) {
+    var parts = calSelectedDate.split('-');
+    var selMonth = parseInt(parts[1]);
+    var selDay = parseInt(parts[2]);
+    html += '<div class="cal-events">';
+    html += '<div class="cal-event-date">' + selMonth + '月' + selDay + '日</div>';
+
+    // Anniversaries
+    var annis = ANNIVERSARIES.filter(function(a) { return a.month === selMonth && a.day === selDay; });
+    annis.forEach(function(a) {
+      html += '<div class="anniversary-badge">' + a.emoji + ' ' + a.name + '</div> ';
+    });
+
+    // Events
+    var dayEvents = eventsData.filter(function(e) { return e.date === calSelectedDate; });
+    if (dayEvents.length === 0 && annis.length === 0) {
+      html += '<div class="empty-state"><div class="empty-state-text">予定なし</div></div>';
+    }
+    dayEvents.forEach(function(e) {
+      var place = e.placeRef ? placesData.find(function(p) { return p.id === e.placeRef; }) : null;
+      html += '<div class="item-card" onclick="openEditEvent(\'' + e.id + '\')">';
+      html += '<div class="item-card-header"><div class="item-card-title">' + esc(e.title) + '</div></div>';
+      html += '<div class="item-card-meta">';
+      if (e.time) html += '<span>🕐 ' + e.time + '</span>';
+      if (place) html += '<span>📍 ' + esc(place.name) + '</span>';
+      html += '<span>' + esc(e.createdBy) + '</span>';
+      html += '</div>';
+      if (e.memo) html += '<div class="item-card-meta"><span>' + esc(e.memo) + '</span></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  calSelectedDate = null;
+  renderTab();
+}
+
+function selectDate(dateStr) {
+  calSelectedDate = dateStr;
+  renderTab();
+}
+
+function hasEventOnDate(dateStr) {
+  return eventsData.some(function(e) { return e.date === dateStr; });
+}
+
+function hasAnniversaryOnDate(month, day) {
+  return ANNIVERSARIES.some(function(a) { return a.month === month && a.day === day; });
+}
+
+// ── List ──
+function renderList(container) {
+  var html = '<div class="filter-bar">';
+  ['all', 'shopping', 'todo'].forEach(function(f) {
+    var label = f === 'all' ? '全て' : f === 'shopping' ? '🛒 買物' : '✅ やること';
+    html += '<button class="filter-chip' + (listFilter === f ? ' active' : '') + '" onclick="setListFilter(\'' + f + '\')">' + label + '</button>';
+  });
+  html += '</div>';
+
+  var filtered = listData.filter(function(item) {
+    if (listFilter === 'all') return true;
+    return item.category === listFilter;
+  });
+  var unchecked = filtered.filter(function(item) { return !item.checked; });
+  var checked = filtered.filter(function(item) { return item.checked; });
+
+  unchecked.sort(function(a, b) {
+    if (a.date && b.date) return a.date.localeCompare(b.date);
+    if (a.date) return -1;
+    if (b.date) return 1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  if (unchecked.length === 0 && checked.length === 0) {
+    html += '<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">リストは空です</div></div>';
+  }
+
+  unchecked.forEach(function(item) { html += renderListItem(item); });
+
+  if (checked.length > 0) {
+    html += '<div class="section-title">チェック済み <button class="clear-btn" onclick="clearChecked()">クリア</button></div>';
+    checked.forEach(function(item) { html += renderListItem(item); });
+  }
+
+  container.innerHTML = html;
+}
+
+function renderListItem(item) {
+  var catIcon = item.category === 'shopping' ? '🛒' : '✅';
+  var html = '<div class="item-card" onclick="openEditList(\'' + item.id + '\')">';
+  html += '<div class="item-card-header">';
+  html += '<button class="check-btn' + (item.checked ? ' checked' : '') + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')">' + (item.checked ? '✓' : '') + '</button>';
+  html += '<div class="item-card-title' + (item.checked ? ' checked' : '') + '">' + esc(item.name) + '</div>';
+  html += '<span style="font-size:12px">' + catIcon + '</span>';
+  html += '</div>';
+  html += '<div class="item-card-meta">';
+  if (item.date) html += '<span>📅 ' + formatDateDisplay(item.date) + '</span>';
+  html += '<span>' + esc(item.createdBy || '') + '</span>';
+  if (item.note) html += '<span>' + esc(item.note) + '</span>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+function setListFilter(f) { listFilter = f; renderTab(); }
+
+function toggleListCheck(id, val) {
+  db.ref('list/' + id).update({ checked: val });
+}
+
+function clearChecked() {
+  var cat = listFilter;
+  listData.forEach(function(item) {
+    if (item.checked) {
+      if (cat === 'all' || item.category === cat) {
+        db.ref('list/' + item.id).remove();
+      }
+    }
+  });
+}
+
+// ── Places ──
+function renderPlaces(container) {
+  var html = '';
+  var unachieved = placesData.filter(function(p) { return !p.achieved; });
+  var achieved = placesData.filter(function(p) { return p.achieved; });
+
+  if (unachieved.length === 0 && achieved.length === 0) {
+    html += '<div class="empty-state"><div class="empty-state-icon">📍</div><div class="empty-state-text">行きたいところを追加しよう</div></div>';
+  }
+
+  unachieved.forEach(function(p) { html += renderPlaceItem(p); });
+
+  if (achieved.length > 0) {
+    html += '<div class="section-title">行ったところ</div>';
+    achieved.forEach(function(p) { html += renderPlaceItem(p); });
+  }
+
+  container.innerHTML = html;
+}
+
+function renderPlaceItem(place) {
+  var html = '<div class="item-card" onclick="openEditPlace(\'' + place.id + '\')">';
+  html += '<div class="item-card-header">';
+  html += '<button class="check-btn' + (place.achieved ? ' checked' : '') + '" onclick="event.stopPropagation();togglePlaceAchieved(\'' + place.id + '\',' + !place.achieved + ')">&#10003;</button>';
+  html += '<div class="item-card-title' + (place.achieved ? ' checked' : '') + '">' + esc(place.name) + '</div>';
+  html += '</div>';
+  html += '<div class="item-card-meta">';
+  if (place.summary) html += '<span>' + esc(place.summary) + '</span>';
+  if (place.achievedDate) html += '<span>📅 ' + formatDateDisplay(place.achievedDate) + '</span>';
+  html += '<span>' + esc(place.createdBy || '') + '</span>';
+  if (place.note) html += '<span>' + esc(place.note) + '</span>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+function togglePlaceAchieved(id, val) {
+  var updates = { achieved: val };
+  if (val) updates.achievedDate = formatDate(new Date());
+  db.ref('places/' + id).update(updates);
+}
+
+// ── Modals ──
+function openModal(title, bodyHtml) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+// ── Add Modal ──
+function openAddModal() {
+  if (currentTab === 'calendar') openAddEvent();
+  else if (currentTab === 'list') openAddList();
+  else if (currentTab === 'places') openAddPlace();
+}
+
+// Event modals
+function openAddEvent() {
+  var placesOpts = '<option value="">選択しない</option>';
+  placesData.filter(function(p) { return !p.achieved; }).forEach(function(p) {
+    placesOpts += '<option value="' + p.id + '">' + esc(p.name) + '</option>';
+  });
+
+  var html = '<div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="fTitle" placeholder="予定のタイトル"></div>';
+  html += '<div class="form-row"><div class="form-group"><label class="form-label">日付</label><input class="form-input" id="fDate" type="date" value="' + (calSelectedDate || formatDate(new Date())) + '"></div>';
+  html += '<div class="form-group"><label class="form-label">時刻</label><input class="form-input" id="fTime" type="time"></div></div>';
+  html += '<div class="form-group"><label class="form-label">行きたいところ</label><select class="form-select" id="fPlace">' + placesOpts + '</select></div>';
+  html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fMemo" placeholder="メモ"></textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-primary" onclick="saveEvent()">保存</button></div>';
+  openModal('予定を追加', html);
+  setTimeout(function() { document.getElementById('fTitle').focus(); }, 200);
+}
+
+function saveEvent(id) {
+  var title = document.getElementById('fTitle').value.trim();
+  if (!title) return;
+  var data = {
+    title: title,
+    date: document.getElementById('fDate').value,
+    time: document.getElementById('fTime').value || null,
+    placeRef: document.getElementById('fPlace').value || null,
+    memo: document.getElementById('fMemo').value.trim() || null,
+    createdBy: currentUser,
+    createdAt: firebase.database.ServerValue.TIMESTAMP
+  };
+  if (id) { db.ref('events/' + id).update(data); }
+  else { db.ref('events').push(data); }
+  closeModal();
+}
+
+function openEditEvent(id) {
+  var e = eventsData.find(function(ev) { return ev.id === id; });
+  if (!e) return;
+  var placesOpts = '<option value="">選択しない</option>';
+  placesData.filter(function(p) { return !p.achieved; }).forEach(function(p) {
+    placesOpts += '<option value="' + p.id + '"' + (e.placeRef === p.id ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+  });
+
+  var html = '<div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="fTitle" value="' + esc(e.title) + '"></div>';
+  html += '<div class="form-row"><div class="form-group"><label class="form-label">日付</label><input class="form-input" id="fDate" type="date" value="' + (e.date || '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">時刻</label><input class="form-input" id="fTime" type="time" value="' + (e.time || '') + '"></div></div>';
+  html += '<div class="form-group"><label class="form-label">行きたいところ</label><select class="form-select" id="fPlace">' + placesOpts + '</select></div>';
+  html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fMemo">' + esc(e.memo || '') + '</textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteEvent(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveEvent(\'' + id + '\')">更新</button></div>';
+  openModal('予定を編集', html);
+}
+
+function deleteEvent(id) { db.ref('events/' + id).remove(); closeModal(); }
+
+// List modals
+function openAddList() {
+  var html = '<div class="form-group"><label class="form-label">名称</label><input class="form-input" id="fName" placeholder="名称"></div>';
+  html += '<div class="form-row"><div class="form-group"><label class="form-label">種別</label><select class="form-select" id="fCat"><option value="shopping">🛒 買物</option><option value="todo">✅ やること</option></select></div>';
+  html += '<div class="form-group"><label class="form-label">いつ</label><input class="form-input" id="fDate" type="date"></div></div>';
+  html += '<div class="form-group"><label class="form-label">備考</label><textarea class="form-textarea" id="fNote" placeholder="備考"></textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-primary" onclick="saveListItem()">保存</button></div>';
+  openModal('リストに追加', html);
+  if (listFilter !== 'all') {
+    setTimeout(function() { document.getElementById('fCat').value = listFilter; }, 50);
+  }
+  setTimeout(function() { document.getElementById('fName').focus(); }, 200);
+}
+
+function saveListItem(id) {
+  var name = document.getElementById('fName').value.trim();
+  if (!name) return;
+  var data = {
+    name: name,
+    category: document.getElementById('fCat').value,
+    date: document.getElementById('fDate').value || null,
+    note: document.getElementById('fNote').value.trim() || null,
+    checked: false,
+    createdBy: currentUser,
+    createdAt: firebase.database.ServerValue.TIMESTAMP
+  };
+  if (id) { db.ref('list/' + id).update(data); }
+  else { db.ref('list').push(data); }
+  closeModal();
+}
+
+function openEditList(id) {
+  var item = listData.find(function(i) { return i.id === id; });
+  if (!item) return;
+  var html = '<div class="form-group"><label class="form-label">名称</label><input class="form-input" id="fName" value="' + esc(item.name) + '"></div>';
+  html += '<div class="form-row"><div class="form-group"><label class="form-label">種別</label><select class="form-select" id="fCat"><option value="shopping"' + (item.category === 'shopping' ? ' selected' : '') + '>🛒 買物</option><option value="todo"' + (item.category === 'todo' ? ' selected' : '') + '>✅ やること</option></select></div>';
+  html += '<div class="form-group"><label class="form-label">いつ</label><input class="form-input" id="fDate" type="date" value="' + (item.date || '') + '"></div></div>';
+  html += '<div class="form-group"><label class="form-label">備考</label><textarea class="form-textarea" id="fNote">' + esc(item.note || '') + '</textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteListItem(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveListItem(\'' + id + '\')">更新</button></div>';
+  openModal('リストを編集', html);
+}
+
+function deleteListItem(id) { db.ref('list/' + id).remove(); closeModal(); }
+
+// Place modals
+function openAddPlace() {
+  var html = '<div class="form-group"><label class="form-label">名称</label><input class="form-input" id="fName" placeholder="行きたいところ"></div>';
+  html += '<div class="form-group"><label class="form-label">概要</label><input class="form-input" id="fSummary" placeholder="概要"></div>';
+  html += '<div class="form-group"><label class="form-label">備考</label><textarea class="form-textarea" id="fNote" placeholder="備考"></textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-primary" onclick="savePlace()">保存</button></div>';
+  openModal('行きたいところを追加', html);
+  setTimeout(function() { document.getElementById('fName').focus(); }, 200);
+}
+
+function savePlace(id) {
+  var name = document.getElementById('fName').value.trim();
+  if (!name) return;
+  var data = {
+    name: name,
+    summary: document.getElementById('fSummary').value.trim() || null,
+    note: document.getElementById('fNote').value.trim() || null,
+    achieved: false,
+    achievedDate: null,
+    createdBy: currentUser,
+    createdAt: firebase.database.ServerValue.TIMESTAMP
+  };
+  if (id) {
+    delete data.achieved;
+    delete data.achievedDate;
+    db.ref('places/' + id).update(data);
+  } else {
+    db.ref('places').push(data);
+  }
+  closeModal();
+}
+
+function openEditPlace(id) {
+  var p = placesData.find(function(pl) { return pl.id === id; });
+  if (!p) return;
+  var html = '<div class="form-group"><label class="form-label">名称</label><input class="form-input" id="fName" value="' + esc(p.name) + '"></div>';
+  html += '<div class="form-group"><label class="form-label">概要</label><input class="form-input" id="fSummary" value="' + esc(p.summary || '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">達成日</label><input class="form-input" id="fAchDate" type="date" value="' + (p.achievedDate || '') + '"></div>';
+  html += '<div class="form-group"><label class="form-label">備考</label><textarea class="form-textarea" id="fNote">' + esc(p.note || '') + '</textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-danger" onclick="deletePlace(\'' + id + '\')">削除</button><button class="btn-primary" onclick="updatePlace(\'' + id + '\')">更新</button></div>';
+  openModal('場所を編集', html);
+}
+
+function updatePlace(id) {
+  var name = document.getElementById('fName').value.trim();
+  if (!name) return;
+  var achDate = document.getElementById('fAchDate').value || null;
+  db.ref('places/' + id).update({
+    name: name,
+    summary: document.getElementById('fSummary').value.trim() || null,
+    note: document.getElementById('fNote').value.trim() || null,
+    achievedDate: achDate,
+    achieved: !!achDate
+  });
+  closeModal();
+}
+
+function deletePlace(id) { db.ref('places/' + id).remove(); closeModal(); }
+
+// ── Calendar: Add list/event from calendar ──
+// (FAB on calendar tab opens event add; list items can be added via event modal or list tab)
+
+// ── Utilities ──
+function formatDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return '';
+  var p = dateStr.split('-');
+  return parseInt(p[1]) + '/' + parseInt(p[2]);
+}
+function esc(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
