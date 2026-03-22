@@ -73,8 +73,7 @@ body {
   flex-direction: column; align-items: center; justify-content: center;
   min-height: 100vh; min-height: 100dvh; padding: 24px; text-align: center;
 }
-.login-heart { font-size: 48px; margin-bottom: 16px; animation: heartbeat 1.5s infinite; }
-@keyframes heartbeat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+.login-heart { font-size: 48px; margin-bottom: 16px; }
 .login-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: var(--accent); }
 .login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; }
 .login-input {
@@ -338,9 +337,9 @@ body {
 
 <!-- Login Screen -->
 <div class="screen active" id="loginScreen">
-  <div class="login-heart">♥</div>
-  <div class="login-title">メモ（テスト）</div>
-  <div class="login-sub">ふたりだけの場所</div>
+  <div class="login-heart">📝</div>
+  <div class="login-title">メモアプリ</div>
+  <div class="login-sub">テスト版</div>
   <input type="password" class="login-input" id="passwordInput" placeholder="パスワード" autocomplete="current-password">
   <button class="login-btn" id="loginBtn" onclick="doLogin()">ログイン</button>
   <div class="login-error" id="loginError"></div>
@@ -348,7 +347,7 @@ body {
 
 <!-- Name Select Screen -->
 <div class="screen" id="nameScreen">
-  <div class="login-heart">♥</div>
+  <div class="login-heart">📝</div>
   <div class="name-title">あなたはどっち？</div>
   <div class="name-buttons">
     <button class="name-btn" onclick="selectName('有彩')">有彩</button>
