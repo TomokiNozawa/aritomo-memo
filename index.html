@@ -255,6 +255,20 @@ body {
 .cal-item.type-anniversary { background: rgba(255,143,171,0.15); color: var(--accent); }
 .cal-item.checked-item { opacity: 0.4; text-decoration: line-through; }
 .cal-more { font-size: 9px; color: var(--text-muted); text-align: center; }
+/* Mobile: dots instead of text labels */
+.cal-dots { display: none; flex-wrap: wrap; gap: 2px; justify-content: center; padding: 1px 0; }
+.cal-dot { width: 5px; height: 5px; border-radius: 50%; }
+.cal-dot.type-event { background: #5aadff; }
+.cal-dot.type-shopping { background: #ff9800; }
+.cal-dot.type-todo { background: #ce93d8; }
+.cal-dot.type-anniversary { background: var(--accent); }
+.cal-dot.checked-item { opacity: 0.3; }
+@media (max-width: 767px) {
+  .cal-item { display: none !important; }
+  .cal-more { display: none !important; }
+  .cal-dots { display: flex; }
+  .cal-day { min-height: 44px; }
+}
 .light .cal-item.type-event { background: rgba(33,150,243,0.12); color: #1976D2; }
 .light .cal-item.type-shopping { background: rgba(255,152,0,0.12); color: #E65100; }
 .light .cal-item.type-todo { background: rgba(156,39,176,0.12); color: #7B1FA2; }
@@ -716,6 +730,7 @@ function renderCalendar(container) {
     var allItems = getItemsForDate(dateStr, calMonth + 1, d);
     var visibleItems = calHideCompleted ? allItems.filter(function(it) { return !it.checked; }) : allItems;
     var shown = visibleItems.slice(0, MAX_ITEMS);
+    // Desktop: text labels
     shown.forEach(function(it) {
       var itemCls = 'cal-item type-' + it.type;
       if (it.checked) itemCls += ' checked-item';
@@ -723,6 +738,16 @@ function renderCalendar(container) {
     });
     if (visibleItems.length > MAX_ITEMS) {
       html += '<div class="cal-more">+' + (visibleItems.length - MAX_ITEMS) + '</div>';
+    }
+    // Mobile: colored dots
+    if (visibleItems.length > 0) {
+      html += '<div class="cal-dots">';
+      visibleItems.forEach(function(it) {
+        var dotCls = 'cal-dot type-' + it.type;
+        if (it.checked) dotCls += ' checked-item';
+        html += '<span class="' + dotCls + '"></span>';
+      });
+      html += '</div>';
     }
     html += '</div>';
   }
@@ -916,6 +941,8 @@ function togglePlaceAchieved(id, val) {
 
 // ── Modals ──
 function openModal(title, bodyHtml) {
+  // Dismiss keyboard before showing modal to prevent layout issues on mobile
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalBody').innerHTML = bodyHtml;
   document.getElementById('modalOverlay').classList.add('active');
