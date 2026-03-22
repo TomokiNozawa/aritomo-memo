@@ -283,6 +283,28 @@ body {
 .light .cal-detail-card.type-shopping { border-color: #E65100; }
 .light .cal-detail-card.type-todo { border-color: #7B1FA2; }
 
+/* ── Free Memo ── */
+.memo-container { display: flex; gap: 12px; height: calc(100vh - 160px); min-height: 300px; }
+.memo-column { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.memo-column-header {
+  font-size: 13px; font-weight: 600; text-align: center; padding: 8px;
+  border-radius: var(--radius) var(--radius) 0 0; color: #fff;
+}
+.memo-column-header.left { background: #e88da3; }
+.memo-column-header.right { background: #5aadff; }
+.light .memo-column-header.left { background: #E91E63; }
+.light .memo-column-header.right { background: #1976D2; }
+.memo-textarea {
+  flex: 1; width: 100%; padding: 12px; border: 1px solid var(--border);
+  border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--bg-card); color: var(--text-primary); font-size: 14px;
+  font-family: inherit; line-height: 1.8; resize: none; outline: none;
+  transition: border-color var(--transition);
+}
+.memo-textarea:focus { border-color: var(--accent); }
+.memo-textarea::placeholder { color: var(--text-muted); }
+.memo-status { font-size: 11px; color: var(--text-muted); text-align: center; padding: 6px; }
+
 /* ── Modal ── */
 .modal-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -403,6 +425,7 @@ body {
     <button class="side-nav-item active" onclick="switchTab('calendar')"><span class="nav-icon">📅</span>カレンダー</button>
     <button class="side-nav-item" onclick="switchTab('list')"><span class="nav-icon">📋</span>リスト</button>
     <button class="side-nav-item" onclick="switchTab('places')"><span class="nav-icon">📍</span>行きたいところ</button>
+    <button class="side-nav-item" onclick="switchTab('memo')"><span class="nav-icon">✏️</span>メモ</button>
     <div class="side-nav-bottom">
       <button class="side-nav-item" onclick="toggleTheme()"><span class="nav-icon" id="sideThemeIcon">🌙</span>テーマ切替</button>
       <button class="side-nav-item" onclick="doLogout()"><span class="nav-icon">🚪</span>ログアウト</button>
@@ -433,6 +456,7 @@ body {
       <button class="nav-tab active" onclick="switchTab('calendar')"><span class="nav-icon">📅</span>カレンダー</button>
       <button class="nav-tab" onclick="switchTab('list')"><span class="nav-icon">📋</span>リスト</button>
       <button class="nav-tab" onclick="switchTab('places')"><span class="nav-icon">📍</span>場所</button>
+      <button class="nav-tab" onclick="switchTab('memo')"><span class="nav-icon">✏️</span>メモ</button>
     </div>
   </nav>
 </div>
@@ -485,6 +509,8 @@ var currentTab = 'calendar';
 var currentUser = localStorage.getItem('aritomo_user') || '';
 var calYear, calMonth, calSelectedDate;
 var listData = [], eventsData = [], placesData = [];
+var memoData = { ariha: '', asahi: '' };
+var memoSaveTimer = null;
 var listFilter = 'all';
 var calHideCompleted = true;
 
@@ -586,6 +612,16 @@ function startListeners() {
     snap.forEach(function(c) { placesData.push(Object.assign({ id: c.key }, c.val())); });
     if (currentTab === 'places' || currentTab === 'calendar') renderTab();
   });
+  db.ref('memo').on('value', function(snap) {
+    var val = snap.val() || {};
+    memoData = { ariha: val.ariha || '', asahi: val.asahi || '' };
+    if (currentTab === 'memo') {
+      var ta1 = document.getElementById('memoAriha');
+      var ta2 = document.getElementById('memoAsahi');
+      if (ta1 && document.activeElement !== ta1) ta1.value = memoData.ariha;
+      if (ta2 && document.activeElement !== ta2) ta2.value = memoData.asahi;
+    }
+  });
 }
 
 // ── Tab Switching ──
@@ -593,11 +629,13 @@ function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.nav-tab').forEach(function(t) {
-    if (t.textContent.trim().match(tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : /場所/)) t.classList.add('active');
+    var tabPattern = tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : tab === 'memo' ? /メモ/ : /場所/;
+    if (t.textContent.trim().match(tabPattern)) t.classList.add('active');
   });
   document.querySelectorAll('.side-nav-item').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.side-nav-item').forEach(function(t) {
-    if (t.textContent.trim().match(tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : /行きたい/)) t.classList.add('active');
+    var sidePattern = tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : tab === 'memo' ? /メモ/ : /行きたい/;
+    if (t.textContent.trim().match(sidePattern)) t.classList.add('active');
   });
   renderTab();
 }
@@ -605,9 +643,11 @@ function switchTab(tab) {
 // ── Render ──
 function renderTab() {
   var c = document.getElementById('appContent');
-  if (currentTab === 'calendar') renderCalendar(c);
-  else if (currentTab === 'list') renderList(c);
-  else if (currentTab === 'places') renderPlaces(c);
+  var fab = document.getElementById('fab');
+  if (currentTab === 'calendar') { renderCalendar(c); fab.style.display = ''; }
+  else if (currentTab === 'list') { renderList(c); fab.style.display = ''; }
+  else if (currentTab === 'places') { renderPlaces(c); fab.style.display = ''; }
+  else if (currentTab === 'memo') { renderMemo(c); fab.style.display = 'none'; }
 }
 
 // ── Calendar ──
@@ -893,6 +933,7 @@ function openAddModal() {
   if (currentTab === 'calendar') openCalendarAddMenu();
   else if (currentTab === 'list') openAddList();
   else if (currentTab === 'places') openAddPlace();
+  // memo tab has no FAB
 }
 
 function openCalendarAddMenu() {
@@ -1058,6 +1099,37 @@ function updatePlace(id) {
 }
 
 function deletePlace(id) { db.ref('places/' + id).remove(); closeModal(); }
+
+// ── Free Memo ──
+function renderMemo(container) {
+  var html = '<div class="memo-container">';
+  html += '<div class="memo-column">';
+  html += '<div class="memo-column-header left">有彩</div>';
+  html += '<textarea class="memo-textarea" id="memoAriha" placeholder="自由にメモ..."' + (currentUser !== '有彩' ? ' readonly' : '') + ' oninput="saveMemo(\'ariha\')">' + esc(memoData.ariha) + '</textarea>';
+  html += '</div>';
+  html += '<div class="memo-column">';
+  html += '<div class="memo-column-header right">朝輝</div>';
+  html += '<textarea class="memo-textarea" id="memoAsahi" placeholder="自由にメモ..."' + (currentUser !== '朝輝' ? ' readonly' : '') + ' oninput="saveMemo(\'asahi\')">' + esc(memoData.asahi) + '</textarea>';
+  html += '</div>';
+  html += '</div>';
+  html += '<div class="memo-status" id="memoStatus"></div>';
+  container.innerHTML = html;
+}
+
+function saveMemo(key) {
+  clearTimeout(memoSaveTimer);
+  var statusEl = document.getElementById('memoStatus');
+  if (statusEl) statusEl.textContent = '入力中...';
+  memoSaveTimer = setTimeout(function() {
+    var el = document.getElementById(key === 'ariha' ? 'memoAriha' : 'memoAsahi');
+    if (!el) return;
+    var update = {};
+    update[key] = el.value;
+    db.ref('memo').update(update).then(function() {
+      if (statusEl) { statusEl.textContent = '保存しました'; setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 1500); }
+    });
+  }, 500);
+}
 
 // ── Calendar: Add list/event from calendar ──
 // (FAB on calendar tab opens event add; list items can be added via event modal or list tab)
