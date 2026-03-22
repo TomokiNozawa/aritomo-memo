@@ -212,37 +212,76 @@ body {
   transition: all var(--transition);
 }
 .cal-nav:active { background: var(--border-light); }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 16px; }
+.cal-filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.cal-filter-toggle {
+  padding: 5px 12px; border-radius: 16px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); font-size: 11px; font-weight: 500;
+  cursor: pointer; white-space: nowrap; font-family: inherit; transition: all var(--transition);
+}
+.cal-filter-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin-bottom: 16px; }
 .cal-dow { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 6px 0; }
 .cal-dow:first-child { color: var(--accent-red); }
 .cal-dow:last-child { color: var(--accent-blue); }
 .cal-day {
-  text-align: center; padding: 8px 2px; border-radius: 8px; font-size: 13px; font-weight: 500;
-  cursor: pointer; position: relative; min-height: 40px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; transition: all var(--transition);
-  color: var(--text-primary);
+  padding: 2px; border-radius: 6px; font-size: 12px; font-weight: 500;
+  cursor: pointer; position: relative; min-height: 56px; display: flex; flex-direction: column;
+  align-items: stretch; transition: all var(--transition);
+  color: var(--text-primary); overflow: hidden;
+}
+.cal-day-num {
+  text-align: center; font-size: 12px; font-weight: 600; line-height: 1;
+  padding: 2px 0; margin-bottom: 1px;
 }
 .cal-day:active { background: var(--border-light); }
-.cal-day.other-month { color: var(--text-muted); opacity: 0.4; }
-.cal-day.today { background: var(--accent); color: #fff; font-weight: 700; border-radius: 50%; }
-.cal-day.selected { outline: 2px solid var(--accent); border-radius: 50%; }
-.cal-day.has-event::after {
-  content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px;
-  border-radius: 50%; background: var(--accent);
+.cal-day.other-month { opacity: 0.3; }
+.cal-day.today .cal-day-num {
+  background: var(--accent); color: #fff; font-weight: 700;
+  border-radius: 50%; width: 22px; height: 22px; line-height: 22px;
+  margin: 0 auto 1px; padding: 0;
 }
-.cal-day.today.has-event::after { background: #fff; }
-.cal-day.has-anniversary::after { background: var(--accent-red); }
-.cal-day.sun { color: var(--accent-red); }
-.cal-day.sat { color: var(--accent-blue); }
-.cal-day.today.sun, .cal-day.today.sat { color: #fff; }
+.cal-day.selected { outline: 2px solid var(--accent); border-radius: 6px; }
+.cal-day.sun .cal-day-num { color: var(--accent-red); }
+.cal-day.sat .cal-day-num { color: var(--accent-blue); }
+.cal-day.today .cal-day-num { color: #fff; }
+.cal-item {
+  font-size: 9px; line-height: 1.3; padding: 1px 3px; margin-bottom: 1px;
+  border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+.cal-item.type-event { background: rgba(90,173,255,0.2); color: #5aadff; }
+.cal-item.type-shopping { background: rgba(255,152,0,0.2); color: #ff9800; }
+.cal-item.type-todo { background: rgba(156,39,176,0.2); color: #ce93d8; }
+.cal-item.type-anniversary { background: rgba(255,143,171,0.15); color: var(--accent); }
+.cal-item.checked-item { opacity: 0.4; text-decoration: line-through; }
+.cal-more { font-size: 9px; color: var(--text-muted); text-align: center; }
+.light .cal-item.type-event { background: rgba(33,150,243,0.12); color: #1976D2; }
+.light .cal-item.type-shopping { background: rgba(255,152,0,0.12); color: #E65100; }
+.light .cal-item.type-todo { background: rgba(156,39,176,0.12); color: #7B1FA2; }
+.light .cal-item.type-anniversary { background: rgba(233,30,99,0.1); color: #C2185B; }
 
 .cal-events { margin-top: 8px; }
 .cal-event-date { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+.cal-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.cal-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
+.cal-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
 .anniversary-badge {
   display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px;
   background: rgba(255,143,171,0.12); color: var(--accent); font-size: 12px; font-weight: 500;
   margin-bottom: 6px;
 }
+.cal-detail-card {
+  background: var(--bg-card); border-left: 3px solid; border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 10px 14px; margin-bottom: 6px; cursor: pointer; transition: all var(--transition);
+}
+.cal-detail-card:active { background: var(--bg-card-hover); }
+.cal-detail-card.type-event { border-color: #5aadff; }
+.cal-detail-card.type-shopping { border-color: #ff9800; }
+.cal-detail-card.type-todo { border-color: #ce93d8; }
+.cal-detail-card.type-anniversary { border-color: var(--accent); }
+.light .cal-detail-card.type-event { border-color: #1976D2; }
+.light .cal-detail-card.type-shopping { border-color: #E65100; }
+.light .cal-detail-card.type-todo { border-color: #7B1FA2; }
 
 /* ── Modal ── */
 .modal-overlay {
@@ -447,6 +486,7 @@ var currentUser = localStorage.getItem('aritomo_user') || '';
 var calYear, calMonth, calSelectedDate;
 var listData = [], eventsData = [], placesData = [];
 var listFilter = 'all';
+var calHideCompleted = true;
 
 // ── Auth ──
 auth.onAuthStateChanged(function(user) {
@@ -485,7 +525,7 @@ function showScreen(id) {
 }
 
 // ── Theme ──
-var isDark = localStorage.getItem('aritomo_theme') !== 'light';
+var isDark = localStorage.getItem('aritomo_theme') === 'dark';
 applyTheme();
 function toggleTheme() {
   isDark = !isDark;
@@ -512,7 +552,7 @@ function getDaysCount() {
 function showApp() {
   showScreen('appScreen');
   var days = getDaysCount();
-  var daysText = '♥ ' + days + '日目';
+  var daysText = days + '日目';
   var hd = document.getElementById('headerDays'); if (hd) hd.textContent = daysText;
   var sd = document.getElementById('sideNavDays'); if (sd) sd.textContent = daysText;
   var ub = document.getElementById('userBadge'); if (ub) ub.textContent = currentUser;
@@ -539,7 +579,7 @@ function startListeners() {
   db.ref('list').on('value', function(snap) {
     listData = [];
     snap.forEach(function(c) { listData.push(Object.assign({ id: c.key }, c.val())); });
-    if (currentTab === 'list') renderTab();
+    if (currentTab === 'list' || currentTab === 'calendar') renderTab();
   });
   db.ref('places').on('value', function(snap) {
     placesData = [];
@@ -571,11 +611,41 @@ function renderTab() {
 }
 
 // ── Calendar ──
+function getItemsForDate(dateStr, month, day) {
+  var items = [];
+  // Anniversaries
+  ANNIVERSARIES.forEach(function(a) {
+    if (a.month === month && a.day === day) {
+      items.push({ type: 'anniversary', title: a.emoji + ' ' + a.name, data: a });
+    }
+  });
+  // Events
+  eventsData.filter(function(e) { return e.date === dateStr; }).forEach(function(e) {
+    items.push({ type: 'event', title: e.title, data: e, checked: false });
+  });
+  // List items with date
+  listData.filter(function(i) { return i.date === dateStr; }).forEach(function(i) {
+    items.push({ type: i.category === 'shopping' ? 'shopping' : 'todo', title: i.name, data: i, checked: !!i.checked });
+  });
+  return items;
+}
+
 function renderCalendar(container) {
   var html = '<div class="cal-header">';
   html += '<button class="cal-nav" onclick="calNav(-1)">&lsaquo;</button>';
   html += '<span class="cal-title">' + calYear + '年 ' + (calMonth + 1) + '月</span>';
   html += '<button class="cal-nav" onclick="calNav(1)">&rsaquo;</button>';
+  html += '</div>';
+
+  // Legend + filter
+  html += '<div class="cal-filter-bar">';
+  html += '<div class="cal-legend">';
+  html += '<span class="cal-legend-item"><span class="cal-legend-dot" style="background:#5aadff"></span>予定</span>';
+  html += '<span class="cal-legend-item"><span class="cal-legend-dot" style="background:#ff9800"></span>買物</span>';
+  html += '<span class="cal-legend-item"><span class="cal-legend-dot" style="background:#ce93d8"></span>やること</span>';
+  html += '<span class="cal-legend-item"><span class="cal-legend-dot" style="background:var(--accent)"></span>記念日</span>';
+  html += '</div>';
+  html += '<button class="cal-filter-toggle' + (calHideCompleted ? ' active' : '') + '" onclick="toggleCalFilter()">未完了のみ</button>';
   html += '</div>';
 
   html += '<div class="cal-grid">';
@@ -588,9 +658,10 @@ function renderCalendar(container) {
   var prevDays = new Date(calYear, calMonth, 0).getDate();
 
   for (var d = 0; d < startDay; d++) {
-    html += '<div class="cal-day other-month">' + (prevDays - startDay + d + 1) + '</div>';
+    html += '<div class="cal-day other-month"><div class="cal-day-num">' + (prevDays - startDay + d + 1) + '</div></div>';
   }
   var today = formatDate(new Date());
+  var MAX_ITEMS = 3;
   for (var d = 1; d <= daysInMonth; d++) {
     var dateStr = formatDate(new Date(calYear, calMonth, d));
     var dow = new Date(calYear, calMonth, d).getDay();
@@ -599,53 +670,81 @@ function renderCalendar(container) {
     if (dow === 6) cls += ' sat';
     if (dateStr === today) cls += ' today';
     if (dateStr === calSelectedDate) cls += ' selected';
-    if (hasEventOnDate(dateStr)) cls += ' has-event';
-    if (hasAnniversaryOnDate(calMonth + 1, d)) cls += ' has-anniversary';
-    html += '<div class="' + cls + '" onclick="selectDate(\'' + dateStr + '\')">' + d + '</div>';
+    html += '<div class="' + cls + '" onclick="selectDate(\'' + dateStr + '\')">';
+    html += '<div class="cal-day-num">' + d + '</div>';
+
+    var allItems = getItemsForDate(dateStr, calMonth + 1, d);
+    var visibleItems = calHideCompleted ? allItems.filter(function(it) { return !it.checked; }) : allItems;
+    var shown = visibleItems.slice(0, MAX_ITEMS);
+    shown.forEach(function(it) {
+      var itemCls = 'cal-item type-' + it.type;
+      if (it.checked) itemCls += ' checked-item';
+      html += '<div class="' + itemCls + '">' + esc(it.title) + '</div>';
+    });
+    if (visibleItems.length > MAX_ITEMS) {
+      html += '<div class="cal-more">+' + (visibleItems.length - MAX_ITEMS) + '</div>';
+    }
+    html += '</div>';
   }
   var remaining = 7 - ((startDay + daysInMonth) % 7);
   if (remaining < 7) {
     for (var d = 1; d <= remaining; d++) {
-      html += '<div class="cal-day other-month">' + d + '</div>';
+      html += '<div class="cal-day other-month"><div class="cal-day-num">' + d + '</div></div>';
     }
   }
   html += '</div>';
 
-  // Selected date events
+  // Selected date detail
   if (calSelectedDate) {
     var parts = calSelectedDate.split('-');
     var selMonth = parseInt(parts[1]);
     var selDay = parseInt(parts[2]);
+    var allDetailItems = getItemsForDate(calSelectedDate, selMonth, selDay);
+    var detailItems = calHideCompleted ? allDetailItems.filter(function(it) { return !it.checked; }) : allDetailItems;
+
     html += '<div class="cal-events">';
     html += '<div class="cal-event-date">' + selMonth + '月' + selDay + '日</div>';
 
-    // Anniversaries
-    var annis = ANNIVERSARIES.filter(function(a) { return a.month === selMonth && a.day === selDay; });
-    annis.forEach(function(a) {
-      html += '<div class="anniversary-badge">' + a.emoji + ' ' + a.name + '</div> ';
-    });
-
-    // Events
-    var dayEvents = eventsData.filter(function(e) { return e.date === calSelectedDate; });
-    if (dayEvents.length === 0 && annis.length === 0) {
+    if (detailItems.length === 0) {
       html += '<div class="empty-state"><div class="empty-state-text">予定なし</div></div>';
     }
-    dayEvents.forEach(function(e) {
-      var place = e.placeRef ? placesData.find(function(p) { return p.id === e.placeRef; }) : null;
-      html += '<div class="item-card" onclick="openEditEvent(\'' + e.id + '\')">';
-      html += '<div class="item-card-header"><div class="item-card-title">' + esc(e.title) + '</div></div>';
-      html += '<div class="item-card-meta">';
-      if (e.time) html += '<span>🕐 ' + e.time + '</span>';
-      if (place) html += '<span>📍 ' + esc(place.name) + '</span>';
-      html += '<span>' + esc(e.createdBy) + '</span>';
-      html += '</div>';
-      if (e.memo) html += '<div class="item-card-meta"><span>' + esc(e.memo) + '</span></div>';
-      html += '</div>';
+    detailItems.forEach(function(it) {
+      if (it.type === 'anniversary') {
+        html += '<div class="anniversary-badge">' + it.data.emoji + ' ' + it.data.name + '</div> ';
+      } else if (it.type === 'event') {
+        var e = it.data;
+        var place = e.placeRef ? placesData.find(function(p) { return p.id === e.placeRef; }) : null;
+        html += '<div class="cal-detail-card type-event" onclick="openEditEvent(\'' + e.id + '\')">';
+        html += '<div style="font-size:14px;font-weight:500;">' + esc(e.title) + '</div>';
+        html += '<div class="item-card-meta">';
+        if (e.time) html += '<span>🕐 ' + e.time + '</span>';
+        if (place) html += '<span>📍 ' + esc(place.name) + '</span>';
+        html += '<span>' + esc(e.createdBy) + '</span>';
+        html += '</div>';
+        if (e.memo) html += '<div class="item-card-meta"><span>' + esc(e.memo) + '</span></div>';
+        html += '</div>';
+      } else {
+        var item = it.data;
+        var catLabel = it.type === 'shopping' ? '🛒' : '✅';
+        html += '<div class="cal-detail-card type-' + it.type + '" onclick="openEditList(\'' + item.id + '\')">';
+        html += '<div style="display:flex;align-items:center;gap:8px;">';
+        html += '<button class="check-btn' + (item.checked ? ' checked' : '') + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')">' + (item.checked ? '✓' : '') + '</button>';
+        html += '<div style="font-size:14px;font-weight:500;' + (item.checked ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">' + esc(item.name) + '</div>';
+        html += '<span style="font-size:12px;margin-left:auto;">' + catLabel + '</span>';
+        html += '</div>';
+        if (item.note) html += '<div class="item-card-meta" style="margin-top:4px;"><span>' + esc(item.note) + '</span></div>';
+        html += '</div>';
+      }
     });
     html += '</div>';
   }
 
   container.innerHTML = html;
+}
+
+function toggleCalFilter() {
+  calHideCompleted = !calHideCompleted;
+  renderTab();
 }
 
 function calNav(dir) {
@@ -659,14 +758,6 @@ function calNav(dir) {
 function selectDate(dateStr) {
   calSelectedDate = dateStr;
   renderTab();
-}
-
-function hasEventOnDate(dateStr) {
-  return eventsData.some(function(e) { return e.date === dateStr; });
-}
-
-function hasAnniversaryOnDate(month, day) {
-  return ANNIVERSARIES.some(function(a) { return a.month === month && a.day === day; });
 }
 
 // ── List ──
@@ -730,6 +821,7 @@ function toggleListCheck(id, val) {
 }
 
 function clearChecked() {
+  if (!confirm('チェック済みの項目を削除しますか？（この操作は取り消せません）')) return;
   var cat = listFilter;
   listData.forEach(function(item) {
     if (item.checked) {
