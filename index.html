@@ -296,6 +296,19 @@ body {
 .cal-dot.type-todo { background: #ce93d8; }
 .cal-dot.type-anniversary { background: var(--accent); }
 .cal-dot.checked-item { opacity: 0.3; }
+
+/* Calendar slide animation */
+.cal-grid.slide-left { animation: calSlideLeft 0.25s ease; }
+.cal-grid.slide-right { animation: calSlideRight 0.25s ease; }
+@keyframes calSlideLeft {
+  0% { opacity: 0; transform: translateX(40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes calSlideRight {
+  0% { opacity: 0; transform: translateX(-40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
 @media (max-width: 767px) {
   .cal-item { display: none !important; }
   .cal-more { display: none !important; }
@@ -319,9 +332,10 @@ body {
 }
 .cal-detail-card {
   background: var(--bg-card); border-left: 3px solid; border-radius: 0 var(--radius) var(--radius) 0;
-  padding: 10px 14px; margin-bottom: 6px; cursor: pointer; transition: all var(--transition);
+  padding: 10px 14px; cursor: pointer; transition: transform 0.2s ease; position: relative; z-index: 2;
 }
 .cal-detail-card:active { background: var(--bg-card-hover); }
+.cal-events .swipe-container { margin-bottom: 6px; border-radius: 0 var(--radius) var(--radius) 0; }
 .cal-detail-card.type-event { border-color: #5aadff; }
 .cal-detail-card.type-shopping { border-color: #ff9800; }
 .cal-detail-card.type-todo { border-color: #ce93d8; }
@@ -737,7 +751,7 @@ function renderCalendar(container) {
   html += '<button class="cal-filter-toggle' + (calHideCompleted ? ' active' : '') + '" onclick="toggleCalFilter()">未完了のみ</button>';
   html += '</div>';
 
-  html += '<div class="cal-grid">';
+  html += '<div class="cal-grid" id="calGrid">';
   var dows = ['日','月','火','水','木','金','土'];
   for (var i = 0; i < 7; i++) html += '<div class="cal-dow">' + dows[i] + '</div>';
 
@@ -814,8 +828,17 @@ function renderCalendar(container) {
       } else if (it.type === 'event') {
         var e = it.data;
         var place = e.placeRef ? placesData.find(function(p) { return p.id === e.placeRef; }) : null;
+        html += '<div class="swipe-container" data-swipe="true">';
+        html += '<div class="swipe-actions">';
+        html += '<button class="swipe-action delete" onclick="event.stopPropagation();deleteEvent(\'' + e.id + '\')"><span class="swipe-action-icon">🗑</span>削除</button>';
+        html += '</div>';
         html += '<div class="cal-detail-card type-event" onclick="openEditEvent(\'' + e.id + '\')">';
-        html += '<div style="font-size:14px;font-weight:500;">' + esc(e.title) + '</div>';
+        html += '<div style="display:flex;align-items:center;gap:8px;">';
+        html += '<div style="font-size:14px;font-weight:500;flex:1;">' + esc(e.title) + '</div>';
+        html += '<div class="pc-actions">';
+        html += '<button class="pc-action delete" onclick="event.stopPropagation();confirmDelete(this,\'event\',\'' + e.id + '\')">削除</button>';
+        html += '</div>';
+        html += '</div>';
         html += '<div class="item-card-meta">';
         if (e.time) html += '<span>🕐 ' + e.time + '</span>';
         if (place) html += '<span>📍 ' + esc(place.name) + '</span>';
@@ -823,16 +846,30 @@ function renderCalendar(container) {
         html += '</div>';
         if (e.memo) html += '<div class="item-card-meta"><span>' + esc(e.memo) + '</span></div>';
         html += '</div>';
+        html += '</div>';
       } else {
         var item = it.data;
         var catLabel = it.type === 'shopping' ? '🛒' : '✅';
+        var cLabel = item.checked ? '戻す' : '完了';
+        var cClass = item.checked ? 'uncomplete' : 'complete';
+        var cIcon = item.checked ? '↩' : '✓';
+        html += '<div class="swipe-container" data-swipe="true">';
+        html += '<div class="swipe-actions">';
+        html += '<button class="swipe-action ' + cClass + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')"><span class="swipe-action-icon">' + cIcon + '</span>' + cLabel + '</button>';
+        html += '<button class="swipe-action delete" onclick="event.stopPropagation();deleteListItem(\'' + item.id + '\')"><span class="swipe-action-icon">🗑</span>削除</button>';
+        html += '</div>';
         html += '<div class="cal-detail-card type-' + it.type + '" onclick="openEditList(\'' + item.id + '\')">';
         html += '<div style="display:flex;align-items:center;gap:8px;">';
-        html += '<button class="check-btn' + (item.checked ? ' checked' : '') + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')">' + (item.checked ? '✓' : '') + '</button>';
-        html += '<div style="font-size:14px;font-weight:500;' + (item.checked ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">' + esc(item.name) + '</div>';
-        html += '<span style="font-size:12px;margin-left:auto;">' + catLabel + '</span>';
+        html += '<div class="status-dot' + (item.checked ? ' checked' : '') + '"></div>';
+        html += '<div style="font-size:14px;font-weight:500;flex:1;' + (item.checked ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">' + esc(item.name) + '</div>';
+        html += '<span style="font-size:12px;">' + catLabel + '</span>';
+        html += '<div class="pc-actions">';
+        html += '<button class="pc-action ' + cClass + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')">' + cLabel + '</button>';
+        html += '<button class="pc-action delete" onclick="event.stopPropagation();confirmDelete(this,\'list\',\'' + item.id + '\')">削除</button>';
+        html += '</div>';
         html += '</div>';
         if (item.note) html += '<div class="item-card-meta" style="margin-top:4px;"><span>' + esc(item.note) + '</span></div>';
+        html += '</div>';
         html += '</div>';
       }
     });
@@ -847,12 +884,22 @@ function toggleCalFilter() {
   renderTab();
 }
 
+var calAnimDir = 0;
 function calNav(dir) {
   calMonth += dir;
   if (calMonth < 0) { calMonth = 11; calYear--; }
   if (calMonth > 11) { calMonth = 0; calYear++; }
   calSelectedDate = null;
+  calAnimDir = dir;
   renderTab();
+  var grid = document.getElementById('calGrid');
+  if (grid) {
+    grid.classList.add(dir > 0 ? 'slide-left' : 'slide-right');
+    grid.addEventListener('animationend', function() {
+      grid.classList.remove('slide-left', 'slide-right');
+    }, { once: true });
+  }
+  calAnimDir = 0;
 }
 
 function selectDate(dateStr) {
@@ -1247,6 +1294,7 @@ function confirmDelete(btn, type, id) {
     delete deleteTimers[key];
     if (type === 'list') deleteListItem(id);
     else if (type === 'place') deletePlace(id);
+    else if (type === 'event') deleteEvent(id);
     return;
   }
   btn.textContent = '本当に？';
@@ -1260,7 +1308,11 @@ function confirmDelete(btn, type, id) {
 
 // ── Swipe handling (mobile) ──
 var activeSwipe = null;
-var SWIPE_THRESHOLD = 144; // 2 buttons x 72px
+
+function getSwipeThreshold(container) {
+  var actions = container.querySelectorAll('.swipe-action');
+  return actions.length * 72;
+}
 
 document.addEventListener('touchstart', function(e) {
   var container = e.target.closest('.swipe-container');
@@ -1268,14 +1320,16 @@ document.addEventListener('touchstart', function(e) {
     closeAllSwipes();
     return;
   }
-  var card = container.querySelector('.item-card');
+  var card = container.querySelector('.item-card, .cal-detail-card');
   var touch = e.touches[0];
+  var threshold = getSwipeThreshold(container);
   container._swipe = {
     startX: touch.clientX,
     startY: touch.clientY,
     currentX: 0,
     locked: false,
-    card: card
+    card: card,
+    threshold: threshold
   };
 }, { passive: true });
 
@@ -1293,7 +1347,7 @@ document.addEventListener('touchmove', function(e) {
   }
 
   e.preventDefault();
-  var x = Math.max(-SWIPE_THRESHOLD, Math.min(0, dx + sw.currentX));
+  var x = Math.max(-sw.threshold, Math.min(0, dx + sw.currentX));
   sw.card.style.transition = 'none';
   sw.card.style.transform = 'translateX(' + x + 'px)';
   sw._lastDx = dx;
@@ -1307,11 +1361,12 @@ document.addEventListener('touchend', function(e) {
   var card = sw.card;
   card.style.transition = 'transform 0.2s ease';
 
+  var threshold = getSwipeThreshold(e.target.closest('.swipe-container') || container);
   if (dx < -50) {
-    card.style.transform = 'translateX(-' + SWIPE_THRESHOLD + 'px)';
+    card.style.transform = 'translateX(-' + threshold + 'px)';
     if (activeSwipe && activeSwipe !== container) closeSwipe(activeSwipe);
     activeSwipe = container;
-    container._swipe.currentX = -SWIPE_THRESHOLD;
+    container._swipe.currentX = -threshold;
   } else {
     card.style.transform = 'translateX(0)';
     container._swipe.currentX = 0;
@@ -1321,7 +1376,7 @@ document.addEventListener('touchend', function(e) {
 }, { passive: true });
 
 function closeSwipe(container) {
-  var card = container.querySelector('.item-card');
+  var card = container.querySelector('.item-card, .cal-detail-card');
   if (card) {
     card.style.transition = 'transform 0.2s ease';
     card.style.transform = 'translateX(0)';
