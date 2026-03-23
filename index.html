@@ -163,11 +163,27 @@ body {
 }
 .fab:active { transform: scale(0.9); }
 
-/* ── Cards ── */
+/* ── Swipeable Cards ── */
+.swipe-container {
+  position: relative; overflow: hidden; border-radius: var(--radius); margin-bottom: 8px;
+}
+.swipe-actions {
+  position: absolute; top: 0; right: 0; bottom: 0; display: flex; align-items: stretch;
+  z-index: 1;
+}
+.swipe-action {
+  display: flex; align-items: center; justify-content: center; width: 72px;
+  border: none; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; flex-direction: column; gap: 2px;
+}
+.swipe-action-icon { font-size: 18px; }
+.swipe-action.complete { background: var(--accent-green); }
+.swipe-action.uncomplete { background: var(--accent-blue); }
+.swipe-action.delete { background: var(--accent-red); }
 .item-card {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 14px 16px; margin-bottom: 8px; cursor: pointer;
-  transition: all var(--transition); position: relative; overflow: hidden;
+  padding: 14px 16px; cursor: pointer;
+  transition: transform 0.2s ease; position: relative; z-index: 2;
 }
 .item-card:active { background: var(--bg-card-hover); }
 .item-card-header { display: flex; align-items: center; gap: 8px; }
@@ -175,12 +191,29 @@ body {
 .item-card-title.checked { text-decoration: line-through; color: var(--text-muted); }
 .item-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
 .item-card-meta span { display: inline-flex; align-items: center; gap: 3px; }
-.check-btn {
-  width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border);
-  background: none; cursor: pointer; flex-shrink: 0; display: flex; align-items: center;
-  justify-content: center; font-size: 12px; color: transparent; transition: all var(--transition);
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--border);
 }
-.check-btn.checked { border-color: var(--accent-green); background: var(--accent-green); color: #fff; }
+.status-dot.checked { border-color: var(--accent-green); background: var(--accent-green); }
+
+/* PC: hover action buttons */
+.pc-actions {
+  display: none; align-items: center; gap: 4px; margin-left: auto; flex-shrink: 0;
+}
+.pc-action {
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text-secondary); font-size: 11px; font-weight: 500;
+  cursor: pointer; font-family: inherit; transition: all var(--transition); white-space: nowrap;
+}
+.pc-action:hover { border-color: var(--text-muted); color: var(--text-primary); }
+.pc-action.complete:hover { border-color: var(--accent-green); color: var(--accent-green); }
+.pc-action.uncomplete:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+.pc-action.delete { color: var(--accent-red); border-color: transparent; }
+.pc-action.delete:hover { border-color: var(--accent-red); }
+.pc-action.confirm-delete { background: var(--accent-red); color: #fff; border-color: var(--accent-red); animation: pulse-delete 0.3s ease; }
+@keyframes pulse-delete { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
 .delete-btn {
   background: var(--accent-red); color: #fff; border: none; padding: 6px 12px;
   border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
@@ -379,7 +412,9 @@ body {
 @media (min-width: 768px) {
   .app-content { max-width: 600px; margin: 0 auto; padding: 20px 20px 100px; }
   .modal { border-radius: var(--radius-lg); align-self: center; }
-  .item-card:hover { background: var(--bg-card-hover); transform: translateY(-1px); box-shadow: var(--shadow); }
+  .item-card:hover { background: var(--bg-card-hover); }
+  .swipe-container:hover .pc-actions { display: flex; }
+  .swipe-actions { display: none; }
 }
 @media (min-width: 1024px) {
   body { display: flex; }
@@ -864,16 +899,29 @@ function renderList(container) {
 
 function renderListItem(item) {
   var catIcon = item.category === 'shopping' ? '🛒' : '✅';
-  var html = '<div class="item-card" onclick="openEditList(\'' + item.id + '\')">';
+  var completeLabel = item.checked ? '戻す' : '完了';
+  var completeClass = item.checked ? 'uncomplete' : 'complete';
+  var completeIcon = item.checked ? '↩' : '✓';
+  var html = '<div class="swipe-container" data-swipe="true">';
+  html += '<div class="swipe-actions">';
+  html += '<button class="swipe-action ' + completeClass + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')"><span class="swipe-action-icon">' + completeIcon + '</span>' + completeLabel + '</button>';
+  html += '<button class="swipe-action delete" onclick="event.stopPropagation();deleteListItem(\'' + item.id + '\')"><span class="swipe-action-icon">🗑</span>削除</button>';
+  html += '</div>';
+  html += '<div class="item-card" onclick="openEditList(\'' + item.id + '\')">';
   html += '<div class="item-card-header">';
-  html += '<button class="check-btn' + (item.checked ? ' checked' : '') + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')">' + (item.checked ? '✓' : '') + '</button>';
+  html += '<div class="status-dot' + (item.checked ? ' checked' : '') + '"></div>';
   html += '<div class="item-card-title' + (item.checked ? ' checked' : '') + '">' + esc(item.name) + '</div>';
   html += '<span style="font-size:12px">' + catIcon + '</span>';
+  html += '<div class="pc-actions">';
+  html += '<button class="pc-action ' + completeClass + '" onclick="event.stopPropagation();toggleListCheck(\'' + item.id + '\',' + !item.checked + ')">' + completeLabel + '</button>';
+  html += '<button class="pc-action delete" onclick="event.stopPropagation();confirmDelete(this,\'list\',\'' + item.id + '\')">削除</button>';
+  html += '</div>';
   html += '</div>';
   html += '<div class="item-card-meta">';
   if (item.date) html += '<span>📅 ' + formatDateDisplay(item.date) + '</span>';
   html += '<span>' + esc(item.createdBy || '') + '</span>';
   if (item.note) html += '<span>' + esc(item.note) + '</span>';
+  html += '</div>';
   html += '</div>';
   html += '</div>';
   return html;
@@ -918,16 +966,29 @@ function renderPlaces(container) {
 }
 
 function renderPlaceItem(place) {
-  var html = '<div class="item-card" onclick="openEditPlace(\'' + place.id + '\')">';
+  var completeLabel = place.achieved ? '戻す' : '達成';
+  var completeClass = place.achieved ? 'uncomplete' : 'complete';
+  var completeIcon = place.achieved ? '↩' : '✓';
+  var html = '<div class="swipe-container" data-swipe="true">';
+  html += '<div class="swipe-actions">';
+  html += '<button class="swipe-action ' + completeClass + '" onclick="event.stopPropagation();togglePlaceAchieved(\'' + place.id + '\',' + !place.achieved + ')"><span class="swipe-action-icon">' + completeIcon + '</span>' + completeLabel + '</button>';
+  html += '<button class="swipe-action delete" onclick="event.stopPropagation();deletePlace(\'' + place.id + '\')"><span class="swipe-action-icon">🗑</span>削除</button>';
+  html += '</div>';
+  html += '<div class="item-card" onclick="openEditPlace(\'' + place.id + '\')">';
   html += '<div class="item-card-header">';
-  html += '<button class="check-btn' + (place.achieved ? ' checked' : '') + '" onclick="event.stopPropagation();togglePlaceAchieved(\'' + place.id + '\',' + !place.achieved + ')">&#10003;</button>';
+  html += '<div class="status-dot' + (place.achieved ? ' checked' : '') + '"></div>';
   html += '<div class="item-card-title' + (place.achieved ? ' checked' : '') + '">' + esc(place.name) + '</div>';
+  html += '<div class="pc-actions">';
+  html += '<button class="pc-action ' + completeClass + '" onclick="event.stopPropagation();togglePlaceAchieved(\'' + place.id + '\',' + !place.achieved + ')">' + completeLabel + '</button>';
+  html += '<button class="pc-action delete" onclick="event.stopPropagation();confirmDelete(this,\'place\',\'' + place.id + '\')">削除</button>';
+  html += '</div>';
   html += '</div>';
   html += '<div class="item-card-meta">';
   if (place.summary) html += '<span>' + esc(place.summary) + '</span>';
   if (place.achievedDate) html += '<span>📅 ' + formatDateDisplay(place.achievedDate) + '</span>';
   html += '<span>' + esc(place.createdBy || '') + '</span>';
   if (place.note) html += '<span>' + esc(place.note) + '</span>';
+  html += '</div>';
   html += '</div>';
   html += '</div>';
   return html;
@@ -1176,6 +1237,121 @@ function esc(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+// ── PC: Delete confirmation (double-click pattern) ──
+var deleteTimers = {};
+function confirmDelete(btn, type, id) {
+  var key = type + '_' + id;
+  if (deleteTimers[key]) {
+    clearTimeout(deleteTimers[key]);
+    delete deleteTimers[key];
+    if (type === 'list') deleteListItem(id);
+    else if (type === 'place') deletePlace(id);
+    return;
+  }
+  btn.textContent = '本当に？';
+  btn.classList.add('confirm-delete');
+  deleteTimers[key] = setTimeout(function() {
+    btn.textContent = '削除';
+    btn.classList.remove('confirm-delete');
+    delete deleteTimers[key];
+  }, 2500);
+}
+
+// ── Swipe handling (mobile) ──
+var activeSwipe = null;
+var SWIPE_THRESHOLD = 144; // 2 buttons x 72px
+
+document.addEventListener('touchstart', function(e) {
+  var container = e.target.closest('.swipe-container');
+  if (!container) {
+    closeAllSwipes();
+    return;
+  }
+  var card = container.querySelector('.item-card');
+  var touch = e.touches[0];
+  container._swipe = {
+    startX: touch.clientX,
+    startY: touch.clientY,
+    currentX: 0,
+    locked: false,
+    card: card
+  };
+}, { passive: true });
+
+document.addEventListener('touchmove', function(e) {
+  var container = e.target.closest('.swipe-container');
+  if (!container || !container._swipe) return;
+  var sw = container._swipe;
+  var touch = e.touches[0];
+  var dx = touch.clientX - sw.startX;
+  var dy = touch.clientY - sw.startY;
+
+  if (!sw.locked) {
+    if (Math.abs(dy) > Math.abs(dx)) { container._swipe = null; return; }
+    sw.locked = true;
+  }
+
+  e.preventDefault();
+  var x = Math.max(-SWIPE_THRESHOLD, Math.min(0, dx + sw.currentX));
+  sw.card.style.transition = 'none';
+  sw.card.style.transform = 'translateX(' + x + 'px)';
+  sw._lastDx = dx;
+}, { passive: false });
+
+document.addEventListener('touchend', function(e) {
+  var container = e.target.closest('.swipe-container');
+  if (!container || !container._swipe) return;
+  var sw = container._swipe;
+  var dx = sw._lastDx || 0;
+  var card = sw.card;
+  card.style.transition = 'transform 0.2s ease';
+
+  if (dx < -50) {
+    card.style.transform = 'translateX(-' + SWIPE_THRESHOLD + 'px)';
+    if (activeSwipe && activeSwipe !== container) closeSwipe(activeSwipe);
+    activeSwipe = container;
+    container._swipe.currentX = -SWIPE_THRESHOLD;
+  } else {
+    card.style.transform = 'translateX(0)';
+    container._swipe.currentX = 0;
+    if (activeSwipe === container) activeSwipe = null;
+  }
+  container._swipe = null;
+}, { passive: true });
+
+function closeSwipe(container) {
+  var card = container.querySelector('.item-card');
+  if (card) {
+    card.style.transition = 'transform 0.2s ease';
+    card.style.transform = 'translateX(0)';
+  }
+  if (container._swipe) container._swipe.currentX = 0;
+}
+function closeAllSwipes() {
+  if (activeSwipe) { closeSwipe(activeSwipe); activeSwipe = null; }
+}
+
+// ── Calendar swipe (month navigation) ──
+var calSwipe = {};
+document.addEventListener('touchstart', function(e) {
+  if (!e.target.closest('.cal-grid') && !e.target.closest('.cal-header')) return;
+  calSwipe.startX = e.touches[0].clientX;
+  calSwipe.startY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', function(e) {
+  if (!calSwipe.startX) return;
+  if (!e.target.closest('.cal-grid') && !e.target.closest('.cal-header') && !e.target.closest('.cal-events')) {
+    calSwipe = {};
+    return;
+  }
+  var dx = e.changedTouches[0].clientX - calSwipe.startX;
+  var dy = e.changedTouches[0].clientY - calSwipe.startY;
+  calSwipe = {};
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    calNav(dx < 0 ? 1 : -1);
+  }
+}, { passive: true });
 </script>
 </body>
 </html>
