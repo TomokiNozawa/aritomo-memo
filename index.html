@@ -220,6 +220,17 @@ body {
 }
 
 /* ── Filter Chips ── */
+/* ── 支出予測 サマリー ── */
+.exp-summary { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.exp-sum-main { display: flex; justify-content: space-between; align-items: baseline; }
+.exp-sum-label { font-size: 12px; color: var(--text-muted); }
+.exp-sum-total { font-size: 24px; font-weight: 800; color: var(--accent); }
+.exp-sum-sub { display: flex; gap: 16px; margin-top: 6px; font-size: 12px; color: var(--text-secondary); }
+.exp-sum-sub b { color: var(--text-primary); font-weight: 700; margin-left: 4px; }
+.exp-sum-cats { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-light); font-size: 12px; color: var(--text-secondary); }
+.exp-sum-cat { display: inline-flex; align-items: center; gap: 4px; }
+.exp-sum-cat b { color: var(--text-primary); font-weight: 700; margin-left: 2px; }
+
 .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
 .filter-chip {
   padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
@@ -489,6 +500,7 @@ body {
     <button class="side-nav-item" onclick="switchTab('list')"><span class="nav-icon">📋</span>リスト</button>
     <button class="side-nav-item" onclick="switchTab('places')"><span class="nav-icon">📍</span>行きたいところ</button>
     <button class="side-nav-item" onclick="switchTab('memo')"><span class="nav-icon">✏️</span>メモ</button>
+    <button class="side-nav-item" onclick="switchTab('expenses')"><span class="nav-icon">💰</span>支出予測</button>
     <div class="side-nav-bottom">
       <button class="side-nav-item" onclick="toggleTheme()"><span class="nav-icon" id="sideThemeIcon">🌙</span>テーマ切替</button>
       <button class="side-nav-item" onclick="doLogout()"><span class="nav-icon">🚪</span>ログアウト</button>
@@ -520,6 +532,7 @@ body {
       <button class="nav-tab" onclick="switchTab('list')"><span class="nav-icon">📋</span>リスト</button>
       <button class="nav-tab" onclick="switchTab('places')"><span class="nav-icon">📍</span>場所</button>
       <button class="nav-tab" onclick="switchTab('memo')"><span class="nav-icon">✏️</span>メモ</button>
+      <button class="nav-tab" onclick="switchTab('expenses')"><span class="nav-icon">💰</span>支出</button>
     </div>
   </nav>
 </div>
@@ -571,8 +584,9 @@ var START_DATE = new Date(2025, 2, 16); // 2025-03-16
 var currentTab = 'calendar';
 var currentUser = localStorage.getItem('aritomo_user') || '';
 var calYear, calMonth, calSelectedDate;
-var listData = [], eventsData = [], placesData = [];
+var listData = [], eventsData = [], placesData = [], expensesData = [];
 var memoData = { ariha: '', asahi: '' };
+var expenseFilter = 'all';
 var memoSaveTimer = null;
 var listFilter = 'all';
 var calHideCompleted = true;
@@ -685,6 +699,11 @@ function startListeners() {
       if (ta2 && document.activeElement !== ta2) ta2.value = memoData.asahi;
     }
   });
+  db.ref('expenses').on('value', function(snap) {
+    expensesData = [];
+    snap.forEach(function(c) { expensesData.push(Object.assign({ id: c.key }, c.val())); });
+    if (currentTab === 'expenses') renderTab();
+  });
 }
 
 // ── Tab Switching ──
@@ -692,12 +711,12 @@ function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.nav-tab').forEach(function(t) {
-    var tabPattern = tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : tab === 'memo' ? /メモ/ : /場所/;
+    var tabPattern = tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : tab === 'memo' ? /メモ/ : tab === 'expenses' ? /支出/ : /場所/;
     if (t.textContent.trim().match(tabPattern)) t.classList.add('active');
   });
   document.querySelectorAll('.side-nav-item').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('.side-nav-item').forEach(function(t) {
-    var sidePattern = tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : tab === 'memo' ? /メモ/ : /行きたい/;
+    var sidePattern = tab === 'calendar' ? /カレンダー/ : tab === 'list' ? /リスト/ : tab === 'memo' ? /メモ/ : tab === 'expenses' ? /支出/ : /行きたい/;
     if (t.textContent.trim().match(sidePattern)) t.classList.add('active');
   });
   renderTab();
@@ -711,6 +730,7 @@ function renderTab() {
   else if (currentTab === 'list') { renderList(c); fab.style.display = ''; }
   else if (currentTab === 'places') { renderPlaces(c); fab.style.display = ''; }
   else if (currentTab === 'memo') { renderMemo(c); fab.style.display = 'none'; }
+  else if (currentTab === 'expenses') { renderExpenses(c); fab.style.display = ''; }
 }
 
 // ── Calendar ──
@@ -1068,6 +1088,7 @@ function openAddModal() {
   if (currentTab === 'calendar') openCalendarAddMenu();
   else if (currentTab === 'list') openAddList();
   else if (currentTab === 'places') openAddPlace();
+  else if (currentTab === 'expenses') openAddExpense();
   // memo tab has no FAB
 }
 
@@ -1235,6 +1256,137 @@ function updatePlace(id) {
 
 function deletePlace(id) { db.ref('places/' + id).remove(); closeModal(); }
 
+// ── 支出予測 (Expenses) ──
+var EXPENSE_CATS = [
+  { key: 'moving', label: '引っ越し', icon: '🏠' },
+  { key: 'furniture', label: '家具家電', icon: '🛋' },
+  { key: 'other', label: 'その他', icon: '📦' }
+];
+function expenseCat(key) {
+  for (var i = 0; i < EXPENSE_CATS.length; i++) { if (EXPENSE_CATS[i].key === key) return EXPENSE_CATS[i]; }
+  return EXPENSE_CATS[2];
+}
+function fmtYen(n) { return '¥' + (Number(n) || 0).toLocaleString('ja-JP'); }
+
+function renderExpenses(container) {
+  var total = 0, remain = 0, done = 0;
+  var catTotal = { moving: 0, furniture: 0, other: 0 };
+  expensesData.forEach(function(e) {
+    var amt = Number(e.amount) || 0;
+    total += amt;
+    if (e.purchased) done += amt; else remain += amt;
+    if (catTotal[e.category] === undefined) catTotal.other += amt; else catTotal[e.category] += amt;
+  });
+
+  // サマリー (カテゴリ別合計)
+  var html = '<div class="exp-summary">';
+  html += '<div class="exp-sum-main"><span class="exp-sum-label">予定合計</span><span class="exp-sum-total">' + fmtYen(total) + '</span></div>';
+  html += '<div class="exp-sum-sub"><span>未購入(残り予測) <b>' + fmtYen(remain) + '</b></span><span>購入済 <b>' + fmtYen(done) + '</b></span></div>';
+  html += '<div class="exp-sum-cats">';
+  EXPENSE_CATS.forEach(function(c) {
+    html += '<span class="exp-sum-cat">' + c.icon + ' ' + c.label + '<b>' + fmtYen(catTotal[c.key]) + '</b></span>';
+  });
+  html += '</div></div>';
+
+  // フィルタ
+  html += '<div class="filter-bar">';
+  html += '<button class="filter-chip' + (expenseFilter === 'all' ? ' active' : '') + '" onclick="setExpenseFilter(\'all\')">全て</button>';
+  EXPENSE_CATS.forEach(function(c) {
+    html += '<button class="filter-chip' + (expenseFilter === c.key ? ' active' : '') + '" onclick="setExpenseFilter(\'' + c.key + '\')">' + c.icon + ' ' + c.label + '</button>';
+  });
+  html += '</div>';
+
+  var filtered = expensesData.filter(function(e) { return expenseFilter === 'all' ? true : e.category === expenseFilter; });
+  var notyet = filtered.filter(function(e) { return !e.purchased; });
+  var bought = filtered.filter(function(e) { return e.purchased; });
+  notyet.sort(function(a, b) { return (Number(b.amount) || 0) - (Number(a.amount) || 0); });
+  bought.sort(function(a, b) { return (Number(b.amount) || 0) - (Number(a.amount) || 0); });
+
+  if (notyet.length === 0 && bought.length === 0) {
+    html += '<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-text">支出予定を追加しよう</div></div>';
+  }
+  notyet.forEach(function(e) { html += renderExpenseItem(e); });
+  if (bought.length > 0) {
+    html += '<div class="section-title">購入済み</div>';
+    bought.forEach(function(e) { html += renderExpenseItem(e); });
+  }
+  container.innerHTML = html;
+}
+
+function renderExpenseItem(e) {
+  var cat = expenseCat(e.category);
+  var label = e.purchased ? '戻す' : '購入済';
+  var klass = e.purchased ? 'uncomplete' : 'complete';
+  var icon = e.purchased ? '↩' : '✓';
+  var html = '<div class="swipe-container" data-swipe="true">';
+  html += '<div class="swipe-actions">';
+  html += '<button class="swipe-action ' + klass + '" onclick="event.stopPropagation();togglePurchased(\'' + e.id + '\',' + !e.purchased + ')"><span class="swipe-action-icon">' + icon + '</span>' + label + '</button>';
+  html += '<button class="swipe-action delete" onclick="event.stopPropagation();deleteExpense(\'' + e.id + '\')"><span class="swipe-action-icon">🗑</span>削除</button>';
+  html += '</div>';
+  html += '<div class="item-card" onclick="openEditExpense(\'' + e.id + '\')">';
+  html += '<div class="item-card-header">';
+  html += '<div class="status-dot' + (e.purchased ? ' checked' : '') + '"></div>';
+  html += '<div class="item-card-title' + (e.purchased ? ' checked' : '') + '">' + esc(e.name) + '</div>';
+  html += '<span style="font-size:13px;font-weight:700;white-space:nowrap;">' + fmtYen(e.amount) + '</span>';
+  html += '<div class="pc-actions">';
+  html += '<button class="pc-action ' + klass + '" onclick="event.stopPropagation();togglePurchased(\'' + e.id + '\',' + !e.purchased + ')">' + label + '</button>';
+  html += '<button class="pc-action delete" onclick="event.stopPropagation();confirmDelete(this,\'expense\',\'' + e.id + '\')">削除</button>';
+  html += '</div></div>';
+  html += '<div class="item-card-meta">';
+  html += '<span>' + cat.icon + ' ' + cat.label + '</span>';
+  html += '<span>' + esc(e.createdBy || '') + '</span>';
+  if (e.note) html += '<span>' + esc(e.note) + '</span>';
+  html += '</div></div></div>';
+  return html;
+}
+
+function setExpenseFilter(f) { expenseFilter = f; renderTab(); }
+function togglePurchased(id, val) { db.ref('expenses/' + id).update({ purchased: val }); }
+
+function openAddExpense() {
+  var catOpts = '';
+  EXPENSE_CATS.forEach(function(c) { catOpts += '<option value="' + c.key + '">' + c.icon + ' ' + c.label + '</option>'; });
+  var html = '<div class="form-group"><label class="form-label">品目名</label><input class="form-input" id="fName" placeholder="例: 冷蔵庫 / 敷金・礼金"></div>';
+  html += '<div class="form-row"><div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
+  html += '<div class="form-group"><label class="form-label">予定金額(円)</label><input class="form-input" id="fAmount" type="number" inputmode="numeric" placeholder="0"></div></div>';
+  html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote" placeholder="メモ"></textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-primary" onclick="saveExpense()">保存</button></div>';
+  openModal('支出予定を追加', html);
+  if (expenseFilter !== 'all') { setTimeout(function() { document.getElementById('fCat').value = expenseFilter; }, 50); }
+  setTimeout(function() { document.getElementById('fName').focus(); }, 200);
+}
+
+function saveExpense(id) {
+  var name = document.getElementById('fName').value.trim();
+  if (!name) return;
+  var data = {
+    name: name,
+    category: document.getElementById('fCat').value,
+    amount: Number(document.getElementById('fAmount').value) || 0,
+    note: document.getElementById('fNote').value.trim() || null,
+    createdBy: currentUser,
+    createdAt: firebase.database.ServerValue.TIMESTAMP
+  };
+  if (id) { db.ref('expenses/' + id).update(data); }
+  else { data.purchased = false; db.ref('expenses').push(data); }
+  closeModal();
+}
+
+function openEditExpense(id) {
+  var e = expensesData.find(function(x) { return x.id === id; });
+  if (!e) return;
+  var catOpts = '';
+  EXPENSE_CATS.forEach(function(c) { catOpts += '<option value="' + c.key + '"' + (e.category === c.key ? ' selected' : '') + '>' + c.icon + ' ' + c.label + '</option>'; });
+  var html = '<div class="form-group"><label class="form-label">品目名</label><input class="form-input" id="fName" value="' + esc(e.name) + '"></div>';
+  html += '<div class="form-row"><div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
+  html += '<div class="form-group"><label class="form-label">予定金額(円)</label><input class="form-input" id="fAmount" type="number" inputmode="numeric" value="' + (Number(e.amount) || 0) + '"></div></div>';
+  html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote">' + esc(e.note || '') + '</textarea></div>';
+  html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteExpense(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveExpense(\'' + id + '\')">更新</button></div>';
+  openModal('支出予定を編集', html);
+}
+
+function deleteExpense(id) { db.ref('expenses/' + id).remove(); closeModal(); }
+
 // ── Free Memo ──
 function renderMemo(container) {
   var html = '<div class="memo-container">';
@@ -1295,6 +1447,7 @@ function confirmDelete(btn, type, id) {
     if (type === 'list') deleteListItem(id);
     else if (type === 'place') deletePlace(id);
     else if (type === 'event') deleteEvent(id);
+    else if (type === 'expense') deleteExpense(id);
     return;
   }
   btn.textContent = '本当に？';
