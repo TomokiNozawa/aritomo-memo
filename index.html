@@ -53,6 +53,11 @@
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
 }
 
+/* テーマ切替の瞬間だけ transition を切る。
+   transition が効いている要素は CSS変数(--bg-card 等)の値が変わっても色が再計算されず、
+   切替前の色が残ってしまう (Chromium)。切替中だけ transition を無効化して即時反映させる。 */
+body.theme-switching, body.theme-switching * { transition: none !important; }
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg-primary);
@@ -237,8 +242,7 @@ body {
   border: 2px solid var(--border); background: var(--bg-input);
   display: flex; align-items: center; justify-content: center; position: relative;
   cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1;
-  color: transparent;
-  /* transition: all は CSS変数のテーマ切替に追従しないため付けない (.status-dot と同じ方針) */
+  color: transparent; transition: all var(--transition);
 }
 /* 見た目は 22px のままタップ領域だけ 44x44 に拡張 */
 .exp-check::after {
@@ -431,6 +435,26 @@ body {
   color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
 }
 
+/* ── 作成/更新メタ + 編集履歴 (編集モーダル最下部) ── */
+.meta-line {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-light);
+  font-size: 11px; color: var(--text-muted); line-height: 1.7;
+}
+.hist-block { margin-top: 6px; }
+.hist-summary {
+  font-size: 11px; color: var(--text-secondary); cursor: pointer; padding: 6px 0;
+  list-style: none; min-height: 32px; display: flex; align-items: center; gap: 4px;
+}
+.hist-summary::-webkit-details-marker { display: none; }
+.hist-summary::before { content: '▸'; font-size: 9px; }
+.hist-block[open] .hist-summary::before { content: '▾'; }
+.hist-list { max-height: 210px; overflow-y: auto; padding: 2px 0 0 12px; }
+.hist-entry { margin-bottom: 10px; }
+.hist-entry-meta { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.hist-change { font-size: 12px; color: var(--text-secondary); padding-left: 8px; margin-top: 1px; }
+.hist-from { color: var(--text-muted); text-decoration: line-through; }
+.hist-to { color: var(--text-primary); font-weight: 600; }
+
 /* ── Form ── */
 .form-group { margin-bottom: 12px; }
 .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
@@ -448,6 +472,7 @@ body {
   display: flex; align-items: center; gap: 10px; cursor: pointer; box-sizing: border-box;
   min-height: 44px; padding: 10px 12px; border-radius: 8px;
   border: 1px solid var(--border); background: var(--bg-input);
+  transition: all var(--transition);
 }
 .form-check:hover { border-color: var(--accent-green); }
 .form-check input { width: 18px; height: 18px; flex-shrink: 0; margin: 0; cursor: pointer; accent-color: var(--accent-green); }
@@ -662,12 +687,19 @@ function toggleTheme() {
   applyTheme();
 }
 function applyTheme() {
+  // transition を切った状態で色を差し替える (切替前の色が残るのを防ぐ)
+  document.body.classList.add('theme-switching');
   document.body.classList.toggle('light', !isDark);
   var icon = isDark ? '🌙' : '☀️';
   var t = document.getElementById('themeToggle'); if (t) t.textContent = icon;
   var s = document.getElementById('sideThemeIcon'); if (s) s.textContent = icon;
   var mc = document.querySelector('meta[name="theme-color"]');
   if (mc) mc.content = isDark ? '#0a0e14' : '#FFF0F3';
+  // 色が確定した次のフレームで transition を戻す (hover等のアニメは維持)。
+  // 非表示タブでは rAF が発火しないので setTimeout も併用して必ず戻す。
+  var restore = function() { document.body.classList.remove('theme-switching'); };
+  requestAnimationFrame(function() { requestAnimationFrame(restore); });
+  setTimeout(restore, 100);
 }
 
 // ── Days Counter ──
@@ -1023,7 +1055,7 @@ function renderListItem(item) {
 function setListFilter(f) { listFilter = f; renderTab(); }
 
 function toggleListCheck(id, val) {
-  db.ref('list/' + id).update({ checked: val });
+  touchRecord('list', id, { checked: val });
 }
 
 function clearChecked() {
@@ -1090,7 +1122,7 @@ function renderPlaceItem(place) {
 function togglePlaceAchieved(id, val) {
   var updates = { achieved: val };
   if (val) updates.achievedDate = formatDate(new Date());
-  db.ref('places/' + id).update(updates);
+  touchRecord('places', id, updates);
 }
 
 // ── Modals ──
@@ -1151,12 +1183,9 @@ function saveEvent(id) {
     date: document.getElementById('fDate').value,
     time: document.getElementById('fTime').value || null,
     placeRef: document.getElementById('fPlace').value || null,
-    memo: document.getElementById('fMemo').value.trim() || null,
-    createdBy: currentUser,
-    createdAt: firebase.database.ServerValue.TIMESTAMP
+    memo: document.getElementById('fMemo').value.trim() || null
   };
-  if (id) { db.ref('events/' + id).update(data); }
-  else { db.ref('events').push(data); }
+  saveRecord('events', id, data, eventsData.find(function(ev) { return ev.id === id; }));
   closeModal();
 }
 
@@ -1174,6 +1203,7 @@ function openEditEvent(id) {
   html += '<div class="form-group"><label class="form-label">行きたいところ</label><select class="form-select" id="fPlace">' + placesOpts + '</select></div>';
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fMemo">' + esc(e.memo || '') + '</textarea></div>';
   html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteEvent(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveEvent(\'' + id + '\')">更新</button></div>';
+  html += metaHtml(e);
   openModal('予定を編集', html);
 }
 
@@ -1200,13 +1230,10 @@ function saveListItem(id) {
     name: name,
     category: document.getElementById('fCat').value,
     date: document.getElementById('fDate').value || null,
-    note: document.getElementById('fNote').value.trim() || null,
-    checked: false,
-    createdBy: currentUser,
-    createdAt: firebase.database.ServerValue.TIMESTAMP
+    note: document.getElementById('fNote').value.trim() || null
   };
-  if (id) { db.ref('list/' + id).update(data); }
-  else { db.ref('list').push(data); }
+  if (!id) data.checked = false; // 更新時に送るとチェック済みが未チェックに戻ってしまう
+  saveRecord('list', id, data, listData.find(function(i) { return i.id === id; }));
   closeModal();
 }
 
@@ -1218,6 +1245,7 @@ function openEditList(id) {
   html += '<div class="form-group"><label class="form-label">いつ</label><input class="form-input" id="fDate" type="date" value="' + (item.date || '') + '"></div></div>';
   html += '<div class="form-group"><label class="form-label">備考</label><textarea class="form-textarea" id="fNote">' + esc(item.note || '') + '</textarea></div>';
   html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteListItem(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveListItem(\'' + id + '\')">更新</button></div>';
+  html += metaHtml(item);
   openModal('リストを編集', html);
 }
 
@@ -1239,19 +1267,10 @@ function savePlace(id) {
   var data = {
     name: name,
     summary: document.getElementById('fSummary').value.trim() || null,
-    note: document.getElementById('fNote').value.trim() || null,
-    achieved: false,
-    achievedDate: null,
-    createdBy: currentUser,
-    createdAt: firebase.database.ServerValue.TIMESTAMP
+    note: document.getElementById('fNote').value.trim() || null
   };
-  if (id) {
-    delete data.achieved;
-    delete data.achievedDate;
-    db.ref('places/' + id).update(data);
-  } else {
-    db.ref('places').push(data);
-  }
+  if (!id) { data.achieved = false; data.achievedDate = null; } // 更新時は達成状態を触らない
+  saveRecord('places', id, data, placesData.find(function(p) { return p.id === id; }));
   closeModal();
 }
 
@@ -1263,6 +1282,7 @@ function openEditPlace(id) {
   html += '<div class="form-group"><label class="form-label">達成日</label><input class="form-input" id="fAchDate" type="date" value="' + (p.achievedDate || '') + '"></div>';
   html += '<div class="form-group"><label class="form-label">備考</label><textarea class="form-textarea" id="fNote">' + esc(p.note || '') + '</textarea></div>';
   html += '<div class="modal-actions"><button class="btn-danger" onclick="deletePlace(\'' + id + '\')">削除</button><button class="btn-primary" onclick="updatePlace(\'' + id + '\')">更新</button></div>';
+  html += metaHtml(p);
   openModal('場所を編集', html);
 }
 
@@ -1270,13 +1290,14 @@ function updatePlace(id) {
   var name = document.getElementById('fName').value.trim();
   if (!name) return;
   var achDate = document.getElementById('fAchDate').value || null;
-  db.ref('places/' + id).update({
+  var data = {
     name: name,
     summary: document.getElementById('fSummary').value.trim() || null,
     note: document.getElementById('fNote').value.trim() || null,
     achievedDate: achDate,
     achieved: !!achDate
-  });
+  };
+  saveRecord('places', id, data, placesData.find(function(p) { return p.id === id; }));
   closeModal();
 }
 
@@ -1390,7 +1411,7 @@ function renderExpenseItem(e) {
 
 function setExpenseFilter(f) { expenseFilter = f; renderTab(); }
 function setExpenseStatusFilter(f) { expenseStatusFilter = f; renderTab(); }
-function togglePurchased(id, val) { db.ref('expenses/' + id).update({ purchased: val }); }
+function togglePurchased(id, val) { touchRecord('expenses', id, { purchased: val }); }
 
 function openAddExpense() {
   var catOpts = '';
@@ -1413,15 +1434,12 @@ function saveExpense(id) {
     name: name,
     category: document.getElementById('fCat').value,
     amount: Number(document.getElementById('fAmount').value) || 0,
-    note: document.getElementById('fNote').value.trim() || null,
-    createdBy: currentUser,
-    createdAt: firebase.database.ServerValue.TIMESTAMP
+    note: document.getElementById('fNote').value.trim() || null
   };
   var chk = document.getElementById('fPurchased');
   if (chk) data.purchased = chk.checked;
   else if (!id) data.purchased = false; // 新規のみ既定false (更新時は既存フラグを維持)
-  if (id) { db.ref('expenses/' + id).update(data); }
-  else { db.ref('expenses').push(data); }
+  saveRecord('expenses', id, data, expensesData.find(function(x) { return x.id === id; }));
   closeModal();
 }
 
@@ -1436,6 +1454,7 @@ function openEditExpense(id) {
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote">' + esc(e.note || '') + '</textarea></div>';
   html += '<div class="form-group"><label class="form-check"><input type="checkbox" id="fPurchased"' + (e.purchased ? ' checked' : '') + '><span>購入済み</span></label></div>';
   html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteExpense(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveExpense(\'' + id + '\')">更新</button></div>';
+  html += metaHtml(e);
   openModal('支出予定を編集', html);
 }
 
@@ -1489,6 +1508,124 @@ function esc(s) {
   var d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+// ── 作成/更新メタ + 編集履歴 ──
+// 作成時は createdBy/createdAt、更新時は updatedBy/updatedAt だけを書く (作成者を上書きしない)。
+// 更新時は変わった項目を history に1件push して、編集モーダルから履歴を辿れるようにする。
+var DOW = ['日', '月', '火', '水', '木', '金', '土'];
+
+// 履歴に残す項目と表示名 (ノード別)。ここに無い項目は履歴に出さない。
+var HISTORY_FIELDS = {
+  expenses: { name: '品目名', category: 'カテゴリ', amount: '予定金額', note: 'メモ', purchased: '購入済' },
+  list:     { name: '内容', category: '種別', date: '日付', note: 'メモ' },
+  events:   { title: 'タイトル', date: '日付', time: '時刻', placeRef: '場所', memo: 'メモ' },
+  places:   { name: '場所名', summary: '概要', note: 'メモ', achievedDate: '達成日' }
+};
+
+function fmtHistDate(s) {
+  var p = String(s).split('-');
+  if (p.length !== 3) return String(s);
+  var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  return p[1] + '/' + p[2] + '(' + DOW[d.getDay()] + ')';
+}
+function fmtStamp(ms) {
+  if (!ms) return '';
+  var d = new Date(ms);
+  return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0')
+    + '(' + DOW[d.getDay()] + ') ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function histValue(node, field, val) {
+  if (val === undefined || val === null || val === '') return '(なし)';
+  if (field === 'amount') return fmtYen(val);
+  if (field === 'purchased') return val ? '購入済' : '未購入';
+  if (field === 'date' || field === 'achievedDate') return fmtHistDate(val);
+  if (field === 'category') {
+    if (node === 'expenses') { var c = expenseCat(val); return c.icon + ' ' + c.label; }
+    if (node === 'list') return val === 'shopping' ? '🛒 買物' : '✅ やること';
+  }
+  if (field === 'placeRef') {
+    var p = placesData.find(function(x) { return x.id === val; });
+    return p ? p.name : '(不明な場所)';
+  }
+  return String(val);
+}
+function histNorm(v) { return (v === undefined || v === null || v === '') ? '' : String(v); }
+
+function buildHistoryEntry(node, before, after) {
+  var fields = HISTORY_FIELDS[node] || {};
+  var changes = [];
+  Object.keys(fields).forEach(function(f) {
+    if (!(f in after)) return; // その保存で扱っていない項目は比較しない
+    if (histNorm(before ? before[f] : undefined) === histNorm(after[f])) return;
+    changes.push({
+      label: fields[f],
+      from: histValue(node, f, before ? before[f] : undefined),
+      to: histValue(node, f, after[f])
+    });
+  });
+  if (!changes.length) return null; // 中身が変わっていなければ履歴を残さない
+  return { by: currentUser, at: firebase.database.ServerValue.TIMESTAMP, changes: changes };
+}
+
+// 作成/更新の共通保存。id あり=更新 (履歴を積む) / id なし=新規作成。
+function saveRecord(node, id, data, before) {
+  if (id) {
+    data.updatedBy = currentUser;
+    data.updatedAt = firebase.database.ServerValue.TIMESTAMP;
+    var entry = buildHistoryEntry(node, before, data);
+    db.ref(node + '/' + id).update(data);
+    if (entry) {
+      // history は後から足したサブノードなので、DB Rules で弾かれても気づけるようにする
+      var pushed = db.ref(node + '/' + id + '/history').push(entry);
+      if (pushed && pushed.catch) pushed.catch(function(err) {
+        console.warn('編集履歴を保存できませんでした (Firebase Rules を確認):', err && err.message);
+      });
+    }
+  } else {
+    data.createdBy = currentUser;
+    data.createdAt = firebase.database.ServerValue.TIMESTAMP;
+    db.ref(node).push(data);
+  }
+}
+
+// スワイプ等の状態トグル用。最終更新者だけ記録し、編集履歴には積まない
+// (チェックのオンオフが履歴を埋めてしまうため)。
+function touchRecord(node, id, patch) {
+  patch.updatedBy = currentUser;
+  patch.updatedAt = firebase.database.ServerValue.TIMESTAMP;
+  db.ref(node + '/' + id).update(patch);
+}
+
+// 編集モーダル最下部の「作成/最終更新 + 編集履歴(折りたたみ)」
+function metaHtml(rec) {
+  if (!rec) return '';
+  var line = '作成 ' + esc(rec.createdBy || '不明');
+  if (rec.createdAt) line += ' ' + fmtStamp(rec.createdAt);
+  if (rec.updatedAt || rec.updatedBy) {
+    line += '<br>最終更新 ' + esc(rec.updatedBy || '不明');
+    if (rec.updatedAt) line += ' ' + fmtStamp(rec.updatedAt);
+  }
+  var html = '<div class="meta-line">' + line;
+  var h = rec.history;
+  if (h) {
+    var list = Object.keys(h).map(function(k) { return h[k]; })
+      .sort(function(a, b) { return (b.at || 0) - (a.at || 0); });
+    if (list.length) {
+      html += '<details class="hist-block"><summary class="hist-summary">編集履歴 ' + list.length + '件</summary>';
+      html += '<div class="hist-list">';
+      list.forEach(function(e) {
+        html += '<div class="hist-entry"><div class="hist-entry-meta">' + fmtStamp(e.at) + ' ' + esc(e.by || '') + '</div>';
+        (e.changes || []).forEach(function(c) {
+          html += '<div class="hist-change">' + esc(c.label)
+            + ' <span class="hist-from">' + esc(c.from) + '</span> → <span class="hist-to">' + esc(c.to) + '</span></div>';
+        });
+        html += '</div>';
+      });
+      html += '</div></details>';
+    }
+  }
+  return html + '</div>';
 }
 
 // ── PC: Delete confirmation (double-click pattern) ──
