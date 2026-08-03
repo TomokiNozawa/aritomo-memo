@@ -231,7 +231,24 @@ body {
 .exp-sum-cat { display: inline-flex; align-items: center; gap: 4px; }
 .exp-sum-cat b { color: var(--text-primary); font-weight: 700; margin-left: 2px; }
 
+/* 支出: 購入済チェックボックス (カード上でタップしてトグル) */
+.exp-check {
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; padding: 0;
+  border: 2px solid var(--border); background: var(--bg-input);
+  display: flex; align-items: center; justify-content: center; position: relative;
+  cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1;
+  color: transparent;
+  /* transition: all は CSS変数のテーマ切替に追従しないため付けない (.status-dot と同じ方針) */
+}
+/* 見た目は 22px のままタップ領域だけ 44x44 に拡張 */
+.exp-check::after {
+  content: ''; position: absolute; top: -11px; left: -11px; width: 44px; height: 44px;
+}
+.exp-check.checked { border-color: var(--accent-green); background: var(--accent-green); color: #fff; }
+.exp-check:hover { border-color: var(--accent-green); }
+
 .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
+.filter-bar.cats { margin-bottom: 8px; } /* カテゴリ行と購入状態行を近づける */
 .filter-chip {
   padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
   background: var(--bg-card); color: var(--text-secondary); font-size: 12px; font-weight: 500;
@@ -427,6 +444,14 @@ body {
 .form-select { appearance: none; cursor: pointer; }
 .form-row { display: flex; gap: 8px; }
 .form-row .form-group { flex: 1; }
+.form-check {
+  display: flex; align-items: center; gap: 10px; cursor: pointer; box-sizing: border-box;
+  min-height: 44px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-input);
+}
+.form-check:hover { border-color: var(--accent-green); }
+.form-check input { width: 18px; height: 18px; flex-shrink: 0; margin: 0; cursor: pointer; accent-color: var(--accent-green); }
+.form-check span { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 
 /* ── Empty State ── */
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
@@ -587,6 +612,7 @@ var calYear, calMonth, calSelectedDate;
 var listData = [], eventsData = [], placesData = [], expensesData = [];
 var memoData = { ariha: '', asahi: '' };
 var expenseFilter = 'all';
+var expenseStatusFilter = 'all'; // all | notyet | bought
 var memoSaveTimer = null;
 var listFilter = 'all';
 var calHideCompleted = true;
@@ -1288,26 +1314,45 @@ function renderExpenses(container) {
   });
   html += '</div></div>';
 
-  // フィルタ
-  html += '<div class="filter-bar">';
+  // カテゴリフィルタ
+  html += '<div class="filter-bar cats">';
   html += '<button class="filter-chip' + (expenseFilter === 'all' ? ' active' : '') + '" onclick="setExpenseFilter(\'all\')">全て</button>';
   EXPENSE_CATS.forEach(function(c) {
     html += '<button class="filter-chip' + (expenseFilter === c.key ? ' active' : '') + '" onclick="setExpenseFilter(\'' + c.key + '\')">' + c.icon + ' ' + c.label + '</button>';
   });
   html += '</div>';
 
-  var filtered = expensesData.filter(function(e) { return expenseFilter === 'all' ? true : e.category === expenseFilter; });
+  // 購入状態フィルタ
+  var allNotyet = expensesData.filter(function(e) { return !e.purchased; }).length;
+  var allBought = expensesData.filter(function(e) { return e.purchased; }).length;
+  html += '<div class="filter-bar status">';
+  html += '<button class="filter-chip' + (expenseStatusFilter === 'all' ? ' active' : '') + '" onclick="setExpenseStatusFilter(\'all\')">すべて ' + expensesData.length + '</button>';
+  html += '<button class="filter-chip' + (expenseStatusFilter === 'notyet' ? ' active' : '') + '" onclick="setExpenseStatusFilter(\'notyet\')">未購入 ' + allNotyet + '</button>';
+  html += '<button class="filter-chip' + (expenseStatusFilter === 'bought' ? ' active' : '') + '" onclick="setExpenseStatusFilter(\'bought\')">✓ 購入済 ' + allBought + '</button>';
+  html += '</div>';
+
+  var filtered = expensesData.filter(function(e) {
+    if (expenseFilter !== 'all' && e.category !== expenseFilter) return false;
+    if (expenseStatusFilter === 'notyet' && e.purchased) return false;
+    if (expenseStatusFilter === 'bought' && !e.purchased) return false;
+    return true;
+  });
   var notyet = filtered.filter(function(e) { return !e.purchased; });
   var bought = filtered.filter(function(e) { return e.purchased; });
   notyet.sort(function(a, b) { return (Number(b.amount) || 0) - (Number(a.amount) || 0); });
   bought.sort(function(a, b) { return (Number(b.amount) || 0) - (Number(a.amount) || 0); });
 
   if (notyet.length === 0 && bought.length === 0) {
-    html += '<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-text">支出予定を追加しよう</div></div>';
+    var emptyText = expensesData.length === 0 ? '支出予定を追加しよう'
+      : expenseStatusFilter === 'bought' ? '購入済のものはまだないよ'
+      : expenseStatusFilter === 'notyet' ? '未購入のものはないよ'
+      : '該当する支出予定はないよ';
+    html += '<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-text">' + emptyText + '</div></div>';
   }
   notyet.forEach(function(e) { html += renderExpenseItem(e); });
   if (bought.length > 0) {
-    html += '<div class="section-title">購入済み</div>';
+    // 購入済のみ表示中は見出し不要 (全件が購入済なので)
+    if (expenseStatusFilter !== 'bought') html += '<div class="section-title">購入済み</div>';
     bought.forEach(function(e) { html += renderExpenseItem(e); });
   }
   container.innerHTML = html;
@@ -1325,7 +1370,10 @@ function renderExpenseItem(e) {
   html += '</div>';
   html += '<div class="item-card" onclick="openEditExpense(\'' + e.id + '\')">';
   html += '<div class="item-card-header">';
-  html += '<div class="status-dot' + (e.purchased ? ' checked' : '') + '"></div>';
+  html += '<button class="exp-check' + (e.purchased ? ' checked' : '') + '"'
+    + ' onclick="event.stopPropagation();togglePurchased(\'' + e.id + '\',' + !e.purchased + ')"'
+    + ' aria-pressed="' + (e.purchased ? 'true' : 'false') + '"'
+    + ' aria-label="' + (e.purchased ? '未購入に戻す' : '購入済にする') + '">✓</button>';
   html += '<div class="item-card-title' + (e.purchased ? ' checked' : '') + '">' + esc(e.name) + '</div>';
   html += '<span style="font-size:13px;font-weight:700;white-space:nowrap;">' + fmtYen(e.amount) + '</span>';
   html += '<div class="pc-actions">';
@@ -1341,6 +1389,7 @@ function renderExpenseItem(e) {
 }
 
 function setExpenseFilter(f) { expenseFilter = f; renderTab(); }
+function setExpenseStatusFilter(f) { expenseStatusFilter = f; renderTab(); }
 function togglePurchased(id, val) { db.ref('expenses/' + id).update({ purchased: val }); }
 
 function openAddExpense() {
@@ -1350,6 +1399,7 @@ function openAddExpense() {
   html += '<div class="form-row"><div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
   html += '<div class="form-group"><label class="form-label">予定金額(円)</label><input class="form-input" id="fAmount" type="number" inputmode="numeric" placeholder="0"></div></div>';
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote" placeholder="メモ"></textarea></div>';
+  html += '<div class="form-group"><label class="form-check"><input type="checkbox" id="fPurchased"><span>もう購入済み</span></label></div>';
   html += '<div class="modal-actions"><button class="btn-primary" onclick="saveExpense()">保存</button></div>';
   openModal('支出予定を追加', html);
   if (expenseFilter !== 'all') { setTimeout(function() { document.getElementById('fCat').value = expenseFilter; }, 50); }
@@ -1367,8 +1417,11 @@ function saveExpense(id) {
     createdBy: currentUser,
     createdAt: firebase.database.ServerValue.TIMESTAMP
   };
+  var chk = document.getElementById('fPurchased');
+  if (chk) data.purchased = chk.checked;
+  else if (!id) data.purchased = false; // 新規のみ既定false (更新時は既存フラグを維持)
   if (id) { db.ref('expenses/' + id).update(data); }
-  else { data.purchased = false; db.ref('expenses').push(data); }
+  else { db.ref('expenses').push(data); }
   closeModal();
 }
 
@@ -1381,6 +1434,7 @@ function openEditExpense(id) {
   html += '<div class="form-row"><div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
   html += '<div class="form-group"><label class="form-label">予定金額(円)</label><input class="form-input" id="fAmount" type="number" inputmode="numeric" value="' + (Number(e.amount) || 0) + '"></div></div>';
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote">' + esc(e.note || '') + '</textarea></div>';
+  html += '<div class="form-group"><label class="form-check"><input type="checkbox" id="fPurchased"' + (e.purchased ? ' checked' : '') + '><span>購入済み</span></label></div>';
   html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteExpense(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveExpense(\'' + id + '\')">更新</button></div>';
   openModal('支出予定を編集', html);
 }
