@@ -964,6 +964,7 @@ function regDrawer(def) {
   const prev = drawers[id];
   drawers[id] = Object.assign({ id: id, open: prev ? prev.open : false, remain: prev ? prev.remain : null }, def);
   drawers[id].boxes.forEach(function (m) { m.visible = drawers[id].open; });
+  (drawers[id].hideOpen || []).forEach(function (m) { m.visible = !drawers[id].open; });   // ★v2.9 開時に隠す閉状態パーツ (洗濯機フタ)
   return id;
 }
 function drawerClearance(d) {
@@ -996,15 +997,26 @@ function toggleDrawer(id) {
   if (!d) return;
   d.open = !d.open;
   d.boxes.forEach(function (m) { m.visible = d.open; });
+  (d.hideOpen || []).forEach(function (m) { m.visible = !d.open; });   // ★v2.9 洗濯機フタ: 閉状態パーツと入替表示
+  const pre = d.lidFn ? '🧺 ' : '🗄 ';
   if (d.open) {
-    const dist = drawerClearance(d);
-    // originOff = レイ原点を面から浮かせた分の補正 (めり込み誤ヒット防止で 0.6〜1cm 浮かせている)
-    d.remain = dist === null ? null : Math.max(0, Math.round(dist + (d.originOff || 0) - d.depth));
-    toast('🗄 ' + d.label + ' を開けました' +
-      (d.remain !== null ? ' — 先端から前方 残り約' + d.remain + 'cm' : ''));
+    if (d.lidFn) {
+      // ★v2.9 フタ固有の干渉判定 (上方障害物 + 後方張り出し17.3cm圏)。メッセージ・ラベルは lidFn が組み立てる
+      const r = d.lidFn();
+      d.remain = r.remain; d.labelText = r.label;
+      toast(pre + r.msg);
+    } else {
+      const dist = drawerClearance(d);
+      // originOff = レイ原点を面から浮かせた分の補正 (めり込み誤ヒット防止で 0.6〜1cm 浮かせている)
+      d.remain = dist === null ? null : Math.max(0, Math.round(dist + (d.originOff || 0) - d.depth));
+      d.labelText = null;
+      toast(pre + d.label + ' を開けました' +
+        (d.remain !== null ? ' — 先端から前方 残り約' + d.remain + 'cm' : ''));
+    }
   } else {
     d.remain = null;
-    toast('🗄 ' + d.label + ' を閉めました');
+    d.labelText = null;
+    toast(pre + d.label + ' を閉めました');
   }
 }
 // 開いている引き出しの「残り幅」小ラベル (dimLabel 方式の HTML オーバーレイ)
@@ -1015,7 +1027,7 @@ function updateDrawerLabels() {
   Object.keys(drawers).forEach(function (id) {
     const d = drawers[id];
     const dead = !d.boxes.length || !d.boxes[0].parent;
-    const show = !dead && d.open && d.remain !== null;
+    const show = !dead && d.open && (d.remain !== null || d.labelText);   // ★v2.9 フタはlabelTextでも表示
     let el = drawerLabelEls[id];
     if (!show) {
       if (el) el.style.display = 'none';
@@ -1034,7 +1046,7 @@ function updateDrawerLabels() {
     el.style.display = 'block';
     el.style.left = ((projV.x + 1) / 2 * renderer.domElement.clientWidth) + 'px';
     el.style.top = ((-projV.y + 1) / 2 * renderer.domElement.clientHeight) + 'px';
-    el.textContent = '残り' + d.remain + 'cm';
+    el.textContent = d.labelText || ('残り' + d.remain + 'cm');   // ★v2.9 フタは干渉/後方余裕表示
   });
 }
 
@@ -1905,12 +1917,15 @@ function buildItemParts(g, it) {
     P(w / 2 - 1, uH - 4, 0.8, -w / 4 + 0.5, oT + uH / 2 + 1, zF - 0.4, 0x3a3d41, gm);  // ガラス左 (奥レール)
     P(w / 2 - 1, uH - 4, 0.8, w / 4 - 0.5, oT + uH / 2 + 1, zF + 0.5, 0x34373b, gm);   // ガラス右 (手前レール)
     P(1.2, uH - 4, 0.9, 0, oT + uH / 2 + 1, zF + 1, silver);              // 引き戸 縦框
-    // ★v2.3[9] KM504 開閉シミュレーション: 引き出し3段 (奥行≈45) + スライドテーブル (≈45) + スライド棚 (≈30)
+    // ★v2.3[9] KM504 開閉シミュレーション ★v2.9 突き出し量を実態補正 (公式は非公表 → 合理推定 2026-08-21 調査):
+    //   引き出し3段=42 (本体奥行51 - 背板/前板/レール後退 ≈ 内箱奥行42 のフルスライド想定。ソフトクローズ公表=上級レール) /
+    //   スライドテーブル=38 (奥行51の3/4伸長レール ≈ 38。蒸気家電を上台庇から前へ出す用) /
+    //   家電用スライド棚=30 維持 (棚板奥行≈45の2/3 半引き程度が通例)
     itemDrawerSet(g, it, [
-      { key: 'dr0', label: 'KM504 引き出し(下段)', y0: dArea0, rh: (dArea1 - dArea0) / 3, depth: 45, kind: 'drawer' },
-      { key: 'dr1', label: 'KM504 引き出し(中段)', y0: dArea0 + (dArea1 - dArea0) / 3, rh: (dArea1 - dArea0) / 3, depth: 45, kind: 'drawer' },
-      { key: 'dr2', label: 'KM504 引き出し(上段)', y0: dArea0 + (dArea1 - dArea0) * 2 / 3, rh: (dArea1 - dArea0) / 3, depth: 45, kind: 'drawer' },
-      { key: 'tbl', label: 'KM504 スライドテーブル', y0: dArea1 + 2, rh: 3.5, depth: 45, kind: 'table' },
+      { key: 'dr0', label: 'KM504 引き出し(下段)', y0: dArea0, rh: (dArea1 - dArea0) / 3, depth: 42, kind: 'drawer' },
+      { key: 'dr1', label: 'KM504 引き出し(中段)', y0: dArea0 + (dArea1 - dArea0) / 3, rh: (dArea1 - dArea0) / 3, depth: 42, kind: 'drawer' },
+      { key: 'dr2', label: 'KM504 引き出し(上段)', y0: dArea0 + (dArea1 - dArea0) * 2 / 3, rh: (dArea1 - dArea0) / 3, depth: 42, kind: 'drawer' },
+      { key: 'tbl', label: 'KM504 スライドテーブル', y0: dArea1 + 2, rh: 3.5, depth: 38, kind: 'table' },
       { key: 'shf', label: 'KM504 スライド棚(家電用)', y0: oB + oH2 * 0.48 - 1, rh: 3.5, depth: 30, kind: 'table',
         x0: w / 2 - ow / 2, bw: ow - 8 }
     ], { w: w, d: d, base: base, dark: dark, lite: lite, silver: silver });
@@ -2029,11 +2044,111 @@ function buildItemParts(g, it) {
     P(3, 1, 3, bodyW * 0.32, bodyH + 3.6, zTopF - panD / 2, 0x8a8792);    // 電源ボタン
     const lidD = bodyD - panD - 4;
     const zLid = zTopF - panD - 1 - lidD / 2;
-    P(bodyW - 4, 2.5, lidD, 0, bodyH + 1.25, zLid, lite);                 // 上面フタ (少し明るい面)
-    P(bodyW - 4, 0.8, 1.6, 0, bodyH + 2.7, zLid + lidD * 0.18, base);     // フタ折りたたみ分割線
-    P(bodyW * 0.28, 1, 3, 0, bodyH + 2.8, zTopF - panD - 3, dark);        // フタ手掛け
+    const lidC = P(bodyW - 4, 2.5, lidD, 0, bodyH + 1.25, zLid, lite);    // 上面フタ (少し明るい面)
+    const lidF = P(bodyW - 4, 0.8, 1.6, 0, bodyH + 2.7, zLid + lidD * 0.18, base); // フタ折りたたみ分割線
+    const lidG = P(bodyW * 0.28, 1, 3, 0, bodyH + 2.8, zTopF - panD - 3, dark);    // フタ手掛け
     P(6, 4, 5, -bodyW / 2 + 4, bodyH + 2, -1 - bodyD / 2 + 3, dark);      // 給水ホース取付部 (背面角)
     P(2.5, 8, 2.5, -bodyW / 2 + 4, bodyH - 3, -1 - bodyD / 2 + 1.5, 0xd8d4de); // 給水ホース立ち上がり
+    // ★v2.9 フタのクリック開閉 (BW-DX100J 公式寸法図: ふた開け時高さ146.6cm・後方張り出し17.3cm)。
+    //        ドア/引き出し開閉と同じ流儀 = drawers レジストリ登録・視覚のみ・保存対象外。
+    //        開けると後方ヒンジでフタが起き上がり、上端が本体基準146.6cm・外形背面から17.3cm後方へ届く
+    //        傾斜パネルを表示。開時に「上方障害物 (146.6cmまでに被さる物)」と「後方張り出し17.3cm圏の
+    //        障害物 (洗濯水栓 h≈119-127・窓・壁等)」をレイキャスト判定し、残り幅表示の流儀で警告する
+    const iid = g.userData.itemId;
+    if (iid) {
+      const LID_TOP = 146.6, LID_OVER = 17.3;
+      const hingeY = bodyH + 2.5;                                         // ヒンジ = 閉フタ上面の後端
+      const hingeZ = zLid - lidD / 2;
+      const rise = Math.max(LID_TOP - hingeY, 10);
+      const reach = LID_OVER + (hingeZ + d / 2);                          // ヒンジ→外形背面の距離 + 張り出し17.3
+      const th = Math.atan2(Math.max(reach, 1), rise);
+      const L = Math.sqrt(rise * rise + reach * reach);
+      const openLid = new THREE.Mesh(new THREE.BoxGeometry(bodyW - 4, L, 2.5),
+        new THREE.MeshLambertMaterial({ color: lite }));
+      openLid.position.set(0, hingeY + (L / 2) * Math.cos(th), hingeZ - (L / 2) * Math.sin(th));
+      openLid.rotation.x = -th;                                           // 後方 (-z) へ傾けて起き上がり
+      g.add(openLid);
+      const tub = P(bodyW - 10, 1.5, lidD - 5, 0, bodyH + 0.6, zLid, 0x35323b);   // 開時に見える洗濯槽の口
+      const boxes = [openLid, tub];
+      boxes.forEach(function (m) { m.visible = false; m.userData.drawerBox = true; });
+      const scan = function (origins, dir) {                              // 最初の障害物 (自分・開閉ボックス除外) とその名前
+        const rc = new THREE.Raycaster();
+        rc.far = 500;
+        let best = null, name = null;
+        origins.forEach(function (org) {
+          rc.set(org, dir);
+          const hits = rc.intersectObjects(scene.children, true);
+          for (let i = 0; i < hits.length; i++) {
+            const ob = hits[i].object;
+            if (!ob.isMesh) continue;
+            let p = ob, skip = false;
+            while (p) {
+              if (p === g || p.userData.drawerBox) { skip = true; break; }
+              p = p.parent;
+            }
+            if (skip) continue;
+            if (best === null || hits[i].distance < best) {
+              best = hits[i].distance;
+              name = null;
+              let q = ob;
+              while (q && !name) {
+                const inf = q.userData && q.userData.info;
+                if (inf) name = String(typeof inf === 'string' ? inf : (inf.label || '')).split('(')[0].replace(/ ★.*/, '').trim() || null;
+                q = q.parent;
+              }
+            }
+            break;   // このレイの最初の有効ヒットのみ
+          }
+        });
+        return { dist: best, name: name };
+      };
+      const did = regDrawer({
+        id: 'i_' + iid + '_lid', label: '洗濯機のふた', boxes: boxes, depth: 0,
+        hideOpen: [lidC, lidF, lidG],
+        rayFn: function () {
+          g.updateMatrixWorld();
+          return { origins: [], dir: new THREE.Vector3(0, 1, 0), exclude: g,
+                   labelPos: g.localToWorld(new THREE.Vector3(0, LID_TOP + 10, hingeZ - reach * 0.5)) };
+        },
+        lidFn: function () {
+          g.updateMatrixWorld();
+          const back = new THREE.Vector3(0, 0, -1).applyQuaternion(g.quaternion).normalize();
+          // 後方: フタ面は高さ hy で ヒンジ後方 (hy-hingeY)*tanθ まで張り出す (上端146.6で外形背面+17.3)。
+          //       水栓帯 (h≈119-127) を含む3高さで背面直後から後方レイ → 必要張り出しと実余裕を比較
+          let rear = null;
+          [0.25, 0.6, 0.95].forEach(function (t) {
+            const hy = hingeY + rise * t;
+            const need = (hy - hingeY) * Math.tan(th) - (hingeZ + d / 2);   // 外形背面からの必要張り出し
+            if (need <= 0.5) return;
+            const r = scan([g.localToWorld(new THREE.Vector3(-bodyW * 0.35, hy, -d / 2 + 0.5)),
+                            g.localToWorld(new THREE.Vector3(0, hy, -d / 2 + 0.5)),
+                            g.localToWorld(new THREE.Vector3(bodyW * 0.35, hy, -d / 2 + 0.5))], back);
+            if (r.dist === null) return;
+            const clr = Math.max(r.dist - 0.5, 0);                          // 外形背面→障害物の実距離
+            if (rear === null || clr - need < rear.margin) rear = { margin: clr - need, clr: clr, need: need, name: r.name };
+          });
+          // 上方: フタ上端146.6cmまでに被さる障害物 (フタ帯の上空2点)
+          const up = scan([g.localToWorld(new THREE.Vector3(0, h + 0.5, zLid)),
+                           g.localToWorld(new THREE.Vector3(0, h + 0.5, hingeZ + 3))], new THREE.Vector3(0, 1, 0));
+          const upTop = up.dist === null ? null : Math.round(h + 0.5 + up.dist);   // 障害物下端の高さ (本体基準)
+          const warns = [];
+          if (upTop !== null && upTop < LID_TOP) {
+            warns.push('ふた開け146.6cmが上方の' + (up.name || '障害物') + ' (h≈' + upTop + 'cm) と干渉');
+          }
+          if (rear && rear.margin < 0) {
+            warns.push('ふた後方張り出し17.3cmが' + (rear.name || '後方障害物') + 'と干渉 (後方余裕' + Math.round(rear.clr) + 'cm)');
+          }
+          const rm = rear ? Math.round(Math.max(rear.margin, 0)) : null;
+          return {
+            remain: rm,
+            label: warns.length ? '⚠ふた干渉' : (rm !== null ? 'ふた後方余裕' + rm + 'cm' : null),
+            msg: '洗濯機のふたを開けました (ふた上端146.6cm)' +
+                 (warns.length ? ' ⚠' + warns.join(' / ') : (rm !== null ? ' — 後方余裕約' + rm + 'cm' : ''))
+          };
+        }
+      });
+      lidC.userData.drawerId = lidG.userData.drawerId = openLid.userData.drawerId = tub.userData.drawerId = did;
+    }
   } else {
     // その他/自由サイズ: 従来の単純ボックス + エッジ
     const geo = new THREE.BoxGeometry(w, h, d);
