@@ -1,0 +1,2956 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>nozaROOM - 3D内装シミュレータ</title>
+<meta name="theme-color" content="#0a0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0a0e14;
+  --bg-secondary: #0d1117;
+  --bg-card: #151b23;
+  --bg-card-hover: #1a2230;
+  --bg-input: #1a2230;
+  --border: #253040;
+  --border-light: #1e2a38;
+  --text-primary: #e8edf4;
+  --text-secondary: #8b95a5;
+  --text-muted: #5c6878;
+  --accent: #FF8FAB;
+  --accent-dark: #E91E63;
+  --accent-green: #42c760;
+  --accent-red: #f85149;
+  --accent-blue: #5aadff;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.light {
+  --bg-primary: #FFF0F3;
+  --bg-secondary: #FFE8ED;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #FFF5F7;
+  --bg-input: #FFF5F7;
+  --border: #F5C6D0;
+  --border-light: #FADADD;
+  --text-primary: #37474F;
+  --text-secondary: #607080;
+  --text-muted: #90A0B0;
+  --accent: #E91E63;
+  --accent-dark: #C2185B;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+body.theme-switching, body.theme-switching * { transition: none !important; }
+
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow: hidden; /* 全画面アプリ: 背景スクロールは常時ロック */
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+}
+body.modal-open { overflow: hidden; }
+
+.screen { display: none; }
+.screen.active { display: flex; }
+
+/* ── Auth / Name screens ── */
+#authScreen, #nameScreen {
+  flex-direction: column; align-items: center; justify-content: center;
+  height: 100vh; height: 100dvh; padding: 24px; text-align: center;
+}
+.login-heart { font-size: 48px; margin-bottom: 16px; }
+.login-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: var(--accent); }
+.login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+.login-link {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  padding: 12px 32px; border-radius: var(--radius); background: var(--accent); color: #fff;
+  font-size: 15px; font-weight: 600; text-decoration: none; transition: all var(--transition);
+}
+.login-link:active { transform: scale(0.96); }
+.name-title { font-size: 20px; font-weight: 600; margin-bottom: 32px; }
+.name-buttons { display: flex; gap: 16px; }
+.name-btn {
+  padding: 20px 36px; border: 2px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--bg-card); color: var(--text-primary); font-size: 18px; font-weight: 600;
+  font-family: inherit; cursor: pointer; transition: all var(--transition); min-width: 120px; min-height: 44px;
+}
+.name-btn:active { transform: scale(0.96); }
+.name-btn:hover { border-color: var(--accent); background: var(--bg-card-hover); }
+
+/* ── App shell ── */
+#appScreen { flex-direction: column; height: 100vh; height: 100dvh; }
+
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border); z-index: 100; flex-shrink: 0;
+}
+.app-header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.back-link {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px;
+  padding: 4px 10px; border-radius: 8px; color: var(--text-secondary); text-decoration: none;
+  font-size: 13px; font-weight: 600; transition: all var(--transition); white-space: nowrap;
+}
+.back-link:active, .back-link:hover { background: var(--border-light); color: var(--text-primary); }
+.app-title { font-size: 15px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.app-header-right { display: flex; align-items: center; gap: 4px; }
+.user-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 12px;
+  background: rgba(255,143,171,0.15); color: var(--accent); white-space: nowrap;
+}
+.theme-toggle {
+  background: none; border: none; font-size: 18px; cursor: pointer; min-width: 44px; min-height: 44px;
+  border-radius: 8px; transition: all var(--transition); color: var(--text-secondary);
+}
+.theme-toggle:active { background: var(--border-light); }
+
+/* ── Room tabs ── */
+.room-tabs {
+  display: flex; gap: 6px; padding: 8px 12px 4px; overflow-x: auto; flex-shrink: 0;
+  background: var(--bg-secondary); scrollbar-width: none;
+}
+.room-tabs::-webkit-scrollbar { display: none; }
+.room-tab {
+  padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; font-family: inherit; transition: all var(--transition);
+  min-height: 44px;
+}
+.room-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── Plan bar ── */
+.plan-bar {
+  display: flex; gap: 6px; align-items: center; padding: 4px 12px 8px; flex-shrink: 0;
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border); overflow-x: auto;
+  scrollbar-width: none;
+}
+.plan-bar::-webkit-scrollbar { display: none; }
+.plan-select {
+  flex: 1; min-width: 90px; max-width: 200px; min-height: 44px; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-input);
+  color: var(--text-primary); font-size: 13px; font-family: inherit; outline: none;
+}
+.plan-btn {
+  min-width: 44px; min-height: 44px; padding: 6px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-card); color: var(--text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: all var(--transition); white-space: nowrap;
+}
+.plan-btn:active { background: var(--bg-card-hover); }
+.plan-btn.save { background: var(--accent); color: #fff; border-color: var(--accent); }
+.plan-btn.save.clean { opacity: 0.55; }
+.plan-hint { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+/* ── ★v1.9 LDK サブゾーンチップ (案バーの下) ── */
+.zone-chips {
+  display: flex; gap: 6px; align-items: center; padding: 4px 12px 8px; flex-shrink: 0;
+  background: var(--bg-secondary); border-bottom: 1px solid var(--border); overflow-x: auto;
+  scrollbar-width: none;
+}
+.zone-chips::-webkit-scrollbar { display: none; }
+.zone-chip {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; font-family: inherit; transition: all var(--transition);
+  min-height: 44px;
+}
+.zone-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.dim-note { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Viewport ── */
+#viewport { flex: 1; position: relative; min-height: 0; background: var(--bg-primary); }
+#viewport canvas { display: block; }
+.vp-controls {
+  position: absolute; display: flex; flex-direction: column; gap: 6px; z-index: 50;
+}
+.vp-controls.tr { top: 10px; right: 10px; }
+.vp-controls.tl { top: 10px; left: 10px; flex-direction: row; }
+.vp-btn {
+  min-width: 44px; min-height: 44px; padding: 4px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-card); color: var(--text-secondary);
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: all var(--transition); box-shadow: var(--shadow); opacity: 0.92;
+}
+.vp-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mode-seg { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.mode-seg .vp-btn { border: none; border-radius: 0; box-shadow: none; }
+#vpHint {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  font-size: 11px; color: var(--text-secondary); background: var(--bg-card); opacity: 0.9;
+  padding: 4px 12px; border-radius: 14px; border: 1px solid var(--border); white-space: nowrap;
+  pointer-events: none; z-index: 40; max-width: 94%; overflow: hidden; text-overflow: ellipsis;
+}
+#tooltip {
+  display: none; position: absolute; z-index: 60; max-width: 260px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); padding: 10px 12px; font-size: 12px; color: var(--text-primary);
+}
+#tooltip .tt-title { font-weight: 700; font-size: 12px; margin-bottom: 2px; color: var(--accent); }
+#tooltip .tt-body { color: var(--text-secondary); line-height: 1.5; }
+#dimLabel {
+  display: none; position: absolute; z-index: 55; transform: translate(-50%, -100%);
+  background: rgba(0,0,0,0.72); color: #fff; font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: 6px; pointer-events: none; white-space: nowrap;
+}
+.light #dimLabel { background: rgba(55,71,79,0.85); }
+.drawer-label {
+  position: absolute; z-index: 54; transform: translate(-50%, -100%);
+  background: rgba(198,108,32,0.88); color: #fff; font-size: 11px; font-weight: 600;
+  padding: 2px 7px; border-radius: 6px; pointer-events: none; white-space: nowrap;
+}
+
+/* ── FAB ── */
+.fab {
+  position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); right: 16px; z-index: 800;
+  width: 52px; height: 52px; border-radius: 50%; border: none;
+  background: var(--accent); color: #fff; font-size: 28px; font-weight: 300;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(255,143,171,0.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.fab:active { transform: scale(0.9); }
+.fab.hidden { display: none; }
+
+/* ── Bottom sheets ── */
+.sheet-backdrop {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 950; backdrop-filter: blur(3px);
+}
+.sheet-backdrop.open { display: block; animation: fadeIn 0.15s ease; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 960;
+  background: var(--bg-card); border: 1px solid var(--border); border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-lg);
+  max-width: 520px; margin: 0 auto; max-height: 72vh; max-height: 72dvh;
+  display: none; flex-direction: column;
+}
+.sheet.open { display: flex; animation: slideUp 0.2s ease; }
+.sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px 8px; flex-shrink: 0;
+}
+.sheet-title { font-size: 15px; font-weight: 700; }
+.sheet-close {
+  background: none; border: none; color: var(--text-muted); font-size: 22px;
+  cursor: pointer; min-width: 44px; min-height: 44px; border-radius: var(--radius); font-family: inherit;
+}
+.sheet-close:active { background: var(--border-light); }
+.sheet-tabs { display: flex; gap: 6px; padding: 0 16px 10px; flex-shrink: 0; }
+.sheet-tab {
+  flex: 1; padding: 8px 6px; border-radius: 18px; border: 1px solid var(--border);
+  background: var(--bg-input); color: var(--text-secondary); font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all var(--transition); min-height: 44px; white-space: nowrap;
+}
+.sheet-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.sheet-body { overflow-y: auto; padding: 0 16px calc(16px + env(safe-area-inset-bottom)); }
+#itemSheet { z-index: 900; max-height: 52vh; max-height: 52dvh; }
+
+.cat-section-title { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 12px 0 6px; }
+.cat-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 10px 12px; margin-bottom: 6px; min-height: 44px;
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text-primary); font-family: inherit; font-size: 13px; cursor: pointer;
+  transition: all var(--transition);
+}
+.cat-row:active { background: var(--bg-card-hover); }
+.cat-dot { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; border: 1px solid var(--border); }
+.cat-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-dims { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.cat-memo { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Modal (index.html と同型) ── */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: flex-end;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.active { display: flex; animation: fadeIn 0.15s ease; }
+.modal {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 20px;
+  width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg); animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close {
+  background: none; border: none; color: var(--text-muted); font-size: 22px;
+  cursor: pointer; min-width: 44px; min-height: 44px; border-radius: var(--radius); font-family: inherit;
+}
+.modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+.modal-actions button { flex: 1; min-height: 44px; }
+.btn-primary {
+  padding: 12px; border: none; border-radius: var(--radius); background: var(--accent);
+  color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; min-height: 44px;
+}
+.btn-secondary {
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-card); color: var(--text-primary); font-size: 14px; font-weight: 500;
+  cursor: pointer; font-family: inherit; min-height: 44px;
+}
+.btn-danger {
+  padding: 12px; border: none; border-radius: var(--radius); background: var(--accent-red);
+  color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; min-height: 44px;
+}
+
+/* ── Form ── */
+.form-group { margin-bottom: 12px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-input); color: var(--text-primary); font-size: 14px; font-family: inherit;
+  outline: none; transition: border-color var(--transition); min-height: 44px;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+.form-textarea { resize: vertical; min-height: 52px; }
+.form-row { display: flex; gap: 8px; }
+.form-row .form-group { flex: 1; min-width: 0; }
+input[type="color"].form-input { padding: 4px 6px; height: 44px; cursor: pointer; }
+
+/* ── ★v2.0 カラーバリエーション スウォッチ + 床面高トグル ── */
+.color-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-swatch {
+  width: 44px; height: 44px; border-radius: 50%; padding: 0; cursor: pointer;
+  border: 2px solid var(--border); transition: all var(--transition);
+}
+.color-swatch:active { transform: scale(0.92); }
+.color-swatch.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.color-name { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.floorh-seg { display: flex; gap: 6px; }
+.floorh-btn {
+  flex: 1; min-height: 44px; padding: 8px 6px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-input); color: var(--text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all var(--transition);
+}
+.floorh-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.item-actions { display: flex; gap: 8px; margin-top: 4px; }
+.item-actions button { flex: 1; min-height: 44px; font-size: 13px; }
+.meta-line {
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-light);
+  font-size: 11px; color: var(--text-muted); line-height: 1.7;
+}
+.empty-state { text-align: center; padding: 28px 20px; color: var(--text-muted); }
+.empty-state-icon { font-size: 36px; margin-bottom: 8px; }
+.empty-state-text { font-size: 13px; }
+
+@media (min-width: 768px) {
+  .sheet { max-width: 480px; left: auto; right: 16px; border-radius: var(--radius-lg); border-bottom: 1px solid var(--border); bottom: 16px; }
+  .fab { bottom: 24px; right: 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 未ログイン -->
+<div class="screen" id="authScreen">
+  <div class="login-heart">🏠</div>
+  <div class="login-title">nozaROOM</div>
+  <div class="login-sub">メモアプリでログインしてください</div>
+  <a class="login-link" href="index.html">メモアプリを開く</a>
+</div>
+
+<!-- 担当者選択 -->
+<div class="screen" id="nameScreen">
+  <div class="login-heart">🏠</div>
+  <div class="name-title">あなたはどっち？</div>
+  <div class="name-buttons">
+    <button class="name-btn" onclick="selectName('有彩')">有彩</button>
+    <button class="name-btn" onclick="selectName('朝輝')">朝輝</button>
+  </div>
+</div>
+
+<!-- 本体 -->
+<div class="screen" id="appScreen">
+  <header class="app-header">
+    <div class="app-header-left">
+      <a class="back-link" href="index.html">← メモ</a>
+      <span class="app-title">🏠 nozaROOM</span>
+    </div>
+    <div class="app-header-right">
+      <span class="user-badge" id="userBadge"></span>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="テーマ切替">🌙</button>
+    </div>
+  </header>
+
+  <div class="room-tabs" id="roomTabs"></div>
+  <div class="plan-bar" id="planBar"></div>
+  <div class="zone-chips" id="zoneChips" style="display:none;"></div>
+
+  <div id="viewport">
+    <div class="vp-controls tl">
+      <div class="mode-seg">
+        <button class="vp-btn active" id="modeViewBtn" onclick="setMode('view')">👁 視点</button>
+        <button class="vp-btn" id="modePlaceBtn" onclick="setMode('place')">✋ 配置</button>
+      </div>
+    </div>
+    <div class="vp-controls tr">
+      <button class="vp-btn" onclick="setCamera('top')" title="俯瞰">俯瞰</button>
+      <button class="vp-btn" onclick="setCamera('iso')" title="斜め視点">斜め</button>
+      <button class="vp-btn" onclick="setCamera('eye')" title="室内視点(目線140cm)">室内</button>
+      <button class="vp-btn active" id="outletBtn" onclick="toggleOutlets()" title="コンセント表示">🔌</button>
+    </div>
+    <div id="vpHint"></div>
+    <div id="tooltip"></div>
+    <div id="dimLabel"></div>
+    <div id="drawerLabels"></div>
+  </div>
+
+  <button class="fab" id="fab" onclick="openFurnSheet()" aria-label="家具を置く">+</button>
+</div>
+
+<!-- 家具追加シート (モーダル型: backdrop + focus trap) -->
+<div class="sheet-backdrop" id="furnBackdrop" onclick="closeFurnSheet()"></div>
+<div class="sheet" id="furnSheet" role="dialog" aria-label="家具を置く">
+  <div class="sheet-header">
+    <div class="sheet-title">＋ 家具を置く</div>
+    <button class="sheet-close" onclick="closeFurnSheet()" aria-label="閉じる">&times;</button>
+  </div>
+  <div class="sheet-tabs">
+    <button class="sheet-tab active" id="ftabCatalog" onclick="setFurnTab('catalog')">カタログ</button>
+    <button class="sheet-tab" id="ftabPlaced" onclick="setFurnTab('placed')">配置済み</button>
+    <button class="sheet-tab" id="ftabFree" onclick="setFurnTab('free')">自由サイズ</button>
+  </div>
+  <div class="sheet-body" id="furnBody"></div>
+</div>
+
+<!-- 選択中アイテムパネル (非モーダル: 3D操作と並行利用) -->
+<div class="sheet" id="itemSheet" aria-label="選択中の家具">
+  <div class="sheet-header">
+    <div class="sheet-title" id="itemSheetTitle">家具</div>
+    <button class="sheet-close" onclick="closeItemSheet()" aria-label="閉じる">&times;</button>
+  </div>
+  <div class="sheet-body" id="itemBody"></div>
+</div>
+
+<!-- 汎用モーダル -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal" role="dialog" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModal()" aria-label="閉じる">&times;</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Firebase SDKs (index.html と同一バージョン) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+// ── デバッグモード (?debug=1): Firebase をメモリ内スタブに差し替え、ログインスキップ ──
+var DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+var db = null, auth = null;
+var SHARED_EMAIL = 'aritomo@test.app';
+if (!DEBUG && typeof firebase !== 'undefined') {
+  firebase.initializeApp({
+    apiKey: "AIzaSyD8o-Ca5r6uLOdkJnTVBkt3XXQ9Wdc5lkk",
+    authDomain: "aritomo-memo.firebaseapp.com",
+    databaseURL: "https://aritomo-memo-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "aritomo-memo",
+    storageBucket: "aritomo-memo.firebasestorage.app",
+    messagingSenderId: "608761131258",
+    appId: "1:608761131258:web:8537f715b597981d301943"
+  });
+  db = firebase.database();
+  auth = firebase.auth();
+}
+
+// ── テーマ (localStorage aritomo_theme を index.html と共用)。描画前に適用 ──
+var isDark = localStorage.getItem('aritomo_theme') === 'dark';
+document.body.classList.toggle('light', !isDark);
+
+// ── ジオメトリ定数 (room_data_v2.3.json をそのまま埋め込み。単位cm、原点=北西角、x=東、y=南) ──
+var ROOM_DATA = {"meta":{"name":"nozaROOM room_data","version":"2.3","createdAt":"2026-08-21","source":"間取り図.jpg(位置関係) + LINE_ALBUM 6.jpg 実測(寸法) + 7.jpg 赤書き(コンセント) + ユーザーレビュー第2〜5弾 + 現実準拠差分スペックv1.0+追補(動画2.mp4フレーム93枚+内覧写真突合 2026-08-21) + ユーザーレビュー第4弾=確定3点(写真30・83・38) + 第5弾=3点(シューズBOX面一・6.2ドア南端ピッタリ・玄関引き戸スライドゾーン/写真71・30・83・37 2026-08-21) + 第6弾=ドア総仕上げ8点(開き方向・洗面引き戸化・浴室吊元・6.2開口169フル・玄関袖パネル・WIC・4.5/4.8CL/動画2 t3:05-3:20,2:30-2:45 + 写真37,81-85,92,93,48,61,63 2026-08-21)","notes":["原点=建物外形(バルコニー含む)北西角。x=東, y=南, 単位cm。3D側で x→X, y→Z, 高さ→Y","図面上=北西(NW)。便宜ラベル N/S/W/E は実方位 NW/SE/SW/NE に対応","fixtures 任意フィールド: bottomH=下端高さcm(吊り物, hは上端), color=個別色(#hex), poly=多角形近似(斜め框等, rectの代わり)。type slide_zone=引き戸スライド先ゾーン(床は描くが家具配置ブロッカー ★v2.2新設)。openings 任意フィールド: panels=引き戸の枚数(2=2枚構成, v2.1新設), slideDir=片引き戸の開放スライド方向 N/S/E/W (★v2.2新設), swing=開き戸の開く側の絶対方向 N/S/E/W, hinge=吊元 s(座標小さい端)/e(大きい端), leaves=両開きのリーフ枚数(4=2組両開き), petPos=ペット戸の位置 W/E/S/N寄り (★v2.3新設)","v2.3[1]ドア開閉パラメータをデータ化(swing/hinge/leaves/petPos): LDK→4.5開き戸74=4.5帖側(W)へ開く / 洗面=引き戸化(E駐まり) / 浴室=吊元を南(e)へ反転 / WIC=白片開き・6.2側(N)・吊元東(e) 写真92,93 / 4.8CL=両開き2組4枚(各≈43) 写真61,63 / 4.5CL=両リーフとも部屋側(W)へ開く 写真48","v2.3[2]6.2開口169フル化: 6.2南側張り出し帯 y603.5→613.5延長 + LDK SE角に10x10切欠き床(x761.5..771.5,y603.5..613.5) + トイレ北面y613.5→623.5後退(est)。壁クリップ解消で開口169の中にパネル2枚(各85.5)がぴったり収まり余白・枠残りゼロ(写真30/83)。トイレ吊戸棚・トイレドアも10cm南へ追従","v2.3[3]玄関引き戸の固定袖パネル(写真37/81-85/動画2 t≈3:10-): y553.5壁バンド内 x676.5..771.5 に引き戸と同材の木目袖パネル(h200)+縦スリットすりガラス(x681..689)。閉時は戸+ガラス+袖が連続木目壁面(壁の連続性)、開時はパネル82が袖の前(北=LDK側)に重なって駐まる。ペット戸は引き戸パネル西端寄り(petPos:W)=閉時シューズBOXコーナー直東","v2.2[1]シューズBOX裏の段差解消(写真71): 東仕切り壁61(x518..525.5 北面y492.5)とシューズBOX北面は段差なしの面一(写真71で腰見切りが1枚のフラット壁面を横断・カウンター段差なし)。シューズBOX rect y528..613.5→y492.5..613.5(奥行121)。『玄関収納 張り出しカウンター』(前面y523/h100)は独立の出っ張りとしては実在しない→fixture削除(フラップ扉収納は一体ボリューム下段に吸収。No.7ラベルの『玄関収納カウンター上』表現は歴史的名称として維持)。フックレール・給気口は新北面y492.5へ追従","v2.2[2]LDK→6.2ドア位置修正(写真30/83): E壁チェーンの正しい並びは 188+冷蔵庫169(y188..357)+壁/枠87.5(y357..444.5 給湯リモコン+インターホンはこの壁)+開口169(y444.5..613.5 南端=廊下北壁角y613.5ピッタリ)=613.5。v2.1の『開口y357..526+南壁87.5』は南北が逆(写真30:ドア南端の直外が壁コーナーで南側に壁の余り無し/写真83:リモコン2機がドア開口の北隣)。欄間・引き戸2枚は開口に追従。⚠開口南端10cmは部屋ポリゴン南限y603.5超過=壁生成で実効開口y444.5..603.5=159に自動クリップ(実測169/パネル2枚≈171とのズレはestチェーン公差)。v2.1の『北端7cmスタブ重複』公差は解消(スタブは壁87.5区間の北端に内包)","v2.2[3]LDK南東アルコーブ(x684..771.5, y553.5..603.5)=『謎の空間』の正体: 家具を置ける床ではなく、玄関→LDK片引き戸の開放スライド先(写真37:上レールが東へ延び、開けるとパネル82がこの区画の前=y553.5面に駐まる)+6.2ドア南半分の前アプローチ床(写真30/83:ドア全幅の前に床が写る=床ごと削除すると矛盾)。→床は残し fixture slide_zone で家具配置をブロック。玄関引き戸に slideDir:E、4.8引き戸にも slideDir:E を明記","v2.2[4]冷蔵庫仕切りスタブ65x7(x706.5..771.5, y357..364, LDKポリゴン切欠き)をstub_wall fixtureとしても登録(家具衝突判定対象化。壁描画はポリゴン由来のまま=見た目二重は同色で不可視)","【部屋12】LDK13.3帖 / 洋4.5(251x255.5) / 洋6.2(255x311+南側張り出し帯82) / 洋4.8(311.5x256) / 廊下 / 洗面163x163 / 浴室(浴槽160x79) / トイレ / 玄関 / WIC173x122 / バルコニー2 (主要4室+洗面浴室WICは実測、廊下トイレ玄関バルコニーはest)。天井高240","【LDK南壁チェーン西→東】4.8引き戸82(x103..185)→タイルTV壁157(x185..342 #c9c4bb 上端白見切り線=ピクチャーレールではない)→西仕切り壁厚7(北出っ張り30)→ニッチ169(x349..518=キャットウォーク≈94+ペット小部屋75)→東仕切り壁厚7.5(北出っ張り61)→シューズBOX77(x525.5..602.5 直結・北面y492.5で仕切り壁と面一★v2.2)→玄関ドア開口74(x602.5..676.5 グレー片引き戸+ペットくぐり戸・土間真北・東へスライド)→壁7.5+アルコーブ87.5(=玄関引き戸スライドゾーン★v2.2)≈90。概算766.5≒771.5(残差5は壁厚estで吸収)","【LDK北面チェーン】429→壁10→洗面ドア74.5→58.5→キッチン572..646.5→壁125→771.5","【E壁チェーン北→南】壁188(浴室南まで)→冷蔵庫スペース169(y188..357 有効幅169=日立HZC540L据付66cm適合、No.14 h180上方・No.15 h110中腹)→壁/枠87.5(y357..444.5 ★v2.2 給湯リモコン+インターホン壁・スタブy357..364を内包)→6.2引き戸2枚 開口169(y444.5..613.5 南端=廊下北壁角ピッタリ ★v2.2) 計613.5","【キッチン】北壁付けペニンシュラ180x74.5 (572,188)-(646.5,368) 黒マット天板フルフラット。シンク白38x55南端 / コンロ黒3口46x60北端 / オイルガードガラス西=通路側のみ / 引き出し・ハンドル・キックプレート=東面(v2.1) / レンジフード黒 下端152 / 白ダクト囲い / 背面白グロスパネル","【ニッチ帯】一体カウンター169(天板75・厚4スラブのみ・脚元オープン・下部仕切りなし) / ペット小部屋75(x443..518 h70 床上げ8 開口62x66中央) / 吊戸棚86(x432..518 h127..238) / 白棚2段(40+65) / モニター18 / A2実機(下端200)。フックレール・丸型給気口はシューズBOX北面 y492.5 (⚠位置暫定 ★v2.2追従)","【建具確定】4.5開き戸74(ペット戸・4.5帖側へ開く★v2.3)/4.5CL両開き145(部屋側へ)/4.8引き戸82(北壁左端 開放時パネル東へ178..260)/4.8CL両開き2組4枚173.5(東面★v2.3)/玄関→LDK片引き戸74(パネル82・東へスライドし固定袖パネルの前に駐まる★v2.3)/6.2引き戸2枚169(y444.5..613.5 開口169フル★v2.3)/洗面引き戸74.5(東へ★v2.3)/浴室ドア70(左開き=吊元南★v2.3・est)/トイレ60(est)/WIC白開き戸60(6.2側へ・吊元東★v2.3)/玄関ドア72(est)","【窓確定】4.5腰窓148(sill80 h137) / LDK掃き出し165(h238 カーテンボックス白) / 4.8スリット43+12.5(sill10 h200) / 6.2大窓165(sill30 h190 est±10) / 6.2高所小窓43x2(sill165 h50 est±10) / 洗面窓60(sill110 est・未検証)","【設備】outlets No.1..24=承認済み座標(座標変更禁止・ラベルのみ追記可) / aircons A1..A4実機 / 4.8帖通気口(N壁x190..215 h183-203 est) / 柱9.5・柱11実在 / シューズBOX一体箱room=ldk(LDKビュー実体表示のため) / ペット小部屋は壁帯食い込み表現を許容","⚠未確定: 洗面窓のsill/寸法 / WIC扉形式 / 4.8帖CL内部 / 6.2帖E壁の白レール(ピクチャーレール様・未反映) / リモコンホルダー位置(タイル壁西端に暫定) / 4.8帖通気口のx位置 / フックレール・給気口の壁面 / 斜め框の正確な角度(≈35°仮) / 仕切り壁の正確な厚み / No.6(x560=シューズBOX区間内)・No.7(x614=ドア開口区間内)の壁面再確認 / LDK長辺351.5の再実測(洗面163化との緊張19.5) / 6.2引き戸の各パネル実幅・欄間下端高さ(h200はest) / アルコーブ内の壁仕上げ詳細","経緯v1.0-1.6: 間取り図+実測6.jpg/7.jpgで骨格構築。キッチン北壁付け確定(v1.2)/WIC内寸173x122・洗面台=左/洗濯機パン=右(v1.3)/4.8引き戸82は北壁左端(v1.5)/4.8帖CL統合・柱2本実在確定(v1.5-1.6)","経緯v1.7: 現実準拠アップデート(動画2フレーム93枚+写真突合)。4.5窓=腰窓/ニッチ一体カウンター+ペット小部屋/キッチン(レンジフード・ダクト・ガラス)/玄関分解/A5削除(A2と同一実機)","経緯v1.8: 写真38/48/61/63反映。シンク・コンロfixture分解/オイルガード西1枚のみ/CL両開き確定/シューズBOX一体箱化/冷蔵庫スペースfixture削除(家具として配置)","経緯v1.9: LDK南壁チェーン組み直し(ユーザー確定)/洗面163x163化/玄関→LDKドアを土間真北y553.5へ移動+玄関北壁開口/zones新設(living/dining/kitchen)/6.2窓sill確定(動画2)/A4実在確定/カウンター下仕切り削除","経緯v2.0: 白操作盤の正体=4.8帖通気口(vent化・west4_8へ)/タイル壁上端白レール=見切り線(fixture追加なし・色#c9c4bb)/冷蔵庫有効幅169をNo.14/15へ追記","経緯v2.1: ユーザー確定3点=キッチン引き出し東面(写真38)/6.2ドア=引き戸2枚169(開口y357..526と解釈→v2.2で南北修正)/6.2帖PS・DS削除。meta.notes棚卸し","面積検算: LDKポリゴン22.31m2 − キッチン1.34m2 − 玄関収納張り出し0.23m2 ≈ 20.74m2 = 12.8帖 (公称13.3帖/v1.9洗面163化で-0.34m2)","レビュー用: outlets.no=1..24 / aircons.no=A1..A4 はプレビューPNGの番号と1対1対応 (配列順固定)"]},"unit":"cm","ceilingH":240,"wallT":{"ext":18,"int":10},"orientation":{"figureTop":"NW","balconyMain":"SW"},"rooms":[{"key":"ldk","name":"LDK 13.3帖","floor":"wood","est":false,"poly":[[103.0,283.5],[364.0,283.5],[364.0,183],[429.0,183],[429.0,191.0],[602.0,191.0],[602.0,188.0],[771.5,188.0],[771.5,357.0],[706.5,357.0],[706.5,364.0],[771.5,364.0],[771.5,613.5],[761.5,613.5],[761.5,603.5],[684,603.5],[684,553.5],[103.0,553.5]]},{"key":"west4_5","name":"洋室4.5帖","floor":"wood","est":false,"poly":[[103.0,18.0],[354.0,18.0],[354.0,273.5],[103.0,273.5]]},{"key":"west6_2","name":"洋室6.2帖","floor":"wood","est":false,"poly":[[782.0,101.0],[1037.0,101.0],[1037.0,412.0],[853.5,412.0],[853.5,613.5],[771.5,613.5],[771.5,364.0],[782.0,364.0]]},{"key":"west4_8","name":"洋室4.8帖","floor":"wood","est":false,"poly":[[103.0,563.5],[414.5,563.5],[414.5,819.5],[103.0,819.5]]},{"key":"corridor","name":"廊下","floor":"wood","est":true,"poly":[[684,613.5],[754.5,613.5],[754.5,687.5],[684,687.5]]},{"key":"washroom","name":"洗面脱衣室","floor":"wood","est":false,"poly":[[439.0,18.0],[602.0,18.0],[602.0,181.0],[439.0,181.0]]},{"key":"bathroom","name":"浴室","floor":"bath","est":false,"poly":[[612.0,18.0],[772.0,18.0],[772.0,178.0],[612.0,178.0]]},{"key":"toilet","name":"トイレ","floor":"cf_beige","est":true,"poly":[[754.5,623.5],[853.5,623.5],[853.5,687.5],[754.5,687.5]]},{"key":"genkan","name":"玄関","floor":"tile_marble","est":true,"poly":[[607,613.5],[684,613.5],[684,687.5],[607,687.5]]},{"key":"wic","name":"WIC 1.6帖","floor":"wood","est":false,"poly":[[864.0,422.0],[1037.0,422.0],[1037.0,544.0],[864.0,544.0]]},{"key":"balcony_main","name":"バルコニー(南西・メイン)","floor":"concrete","est":true,"poly":[[10,8],[85,8],[85,630],[10,630]]},{"key":"balcony_ne","name":"バルコニー(北東・小)","floor":"concrete","est":true,"poly":[[792,8],[990,8],[990,83],[792,83]]}],"openings":[{"type":"door","room":"west4_5","wallFrom":[354.0,195.5],"wallTo":[354.0,269.5],"width":74,"sillH":0,"height":200,"label":"LDK通路→洋室4.5 開き戸(ペットくぐり戸付き/東壁下側・ヒンジ南/4.5帖側=西へ開く ★v2.3 ユーザー確定) ★v1.4位置修正","est":false,"petDoor":true,"swing":"W","hinge":"e"},{"type":"door","room":"west4_5","wallFrom":[354.0,28],"wallTo":[354.0,173],"width":145,"sillH":0,"height":200,"label":"洋室4.5→クローゼット 両開き扉(白2枚・銀ハンドル/両リーフとも4.5帖側=西へ開く ★v2.3 写真48) ★v1.8 写真48で両開き確定・est解除","est":false,"swing":"W"},{"type":"sliding","room":"west4_8","wallFrom":[103.0,563.5],"wallTo":[185.0,563.5],"width":82,"sillH":0,"height":200,"label":"LDK→洋室4.8 引き戸82(ペットくぐり戸付き/北壁左端=西壁からすぐ/開放時パネルは東へスライドし178..260に駐まる: 157=西壁→パネル東端260) ★v1.5左端へ ★v1.9 LDK側はタイルTV壁の移動で開口が露出 ★v2.2 slideDir:E明記","est":false,"petDoor":true,"slideDir":"E"},{"type":"door","room":"west4_8","wallFrom":[165.0,636.0],"wallTo":[165.0,809.5],"width":173.5,"sillH":0,"height":200,"label":"洋室4.8→クローゼット 両開き2組4枚(白・各≈43・銀ハンドル/fixture東面x165・部屋側=東へ開く ★v2.3 写真61/63・アプリ側で描画対応) ★v1.8 両開き確定","est":false,"swing":"E","leaves":4},{"type":"sliding","room":"ldk","wallFrom":[602.5,553.5],"wallTo":[676.5,553.5],"width":74,"sillH":0,"height":200,"label":"玄関→LDK グレー片引き戸(ペットくぐり戸=パネル西端寄り★v2.3 写真37/開口74=実測・パネル82/上がり框の真北/開けると東へスライドし固定袖パネルの前=北側に重なって駐まる ★v2.3 写真37・81-85) ★v1.9 土間真北へ移動","est":false,"petDoor":true,"slideDir":"E","petPos":"W","showDim":false},{"type":"sliding","room":"west6_2","wallFrom":[771.5,444.5],"wallTo":[771.5,613.5],"width":169,"sillH":0,"height":200,"label":"LDK→洋室6.2 引き戸2枚(開口169=y444.5..613.5 南端=廊下北壁角ピッタリ/パネル2枚 各85.5・引き違い2cm重なりで開口169にぴったり=ドア以外の要素なし ★v2.3 ポリゴン延長でクリップ解消/グレー木目・黒引手・上部ダーク木目欄間h200..240/北隣y357..444.5は壁87.5=リモコン壁) ★v2.2 写真30・83確定","est":false,"panels":2},{"type":"sliding","room":"washroom","wallFrom":[439.0,181.0],"wallTo":[513.5,181.0],"width":74.5,"sillH":0,"height":200,"label":"キッチン背面通路→洗面 引き戸74.5(洗面南壁西端439..513.5/開けると東へスライドし壁513.5..602の前に駐まる ★v2.3 ユーザー確定: 開き戸→引き戸)","est":false,"slideDir":"E"},{"type":"door","room":"bathroom","wallFrom":[612.0,105],"wallTo":[612.0,175],"width":70,"sillH":0,"height":200,"label":"洗面→浴室 ドア(左側開き=吊元南y175へ反転 ★v2.3 ユーザー確定/浴室内側へ開く/幅70=est保持)","est":true,"hinge":"e","showDim":false},{"type":"door","room":"toilet","wallFrom":[754.5,626],"wallTo":[754.5,686],"width":60,"sillH":0,"height":200,"label":"廊下→トイレ 開き戸(廊下側へ開く/トイレ北面y623.5後退に追従し10cm南へ ★v2.3) ★v1.4寸法ラベル非表示","est":true,"showDim":false},{"type":"open","room":"genkan","wallFrom":[684,613.5],"wallTo":[684,687.5],"width":74,"sillH":0,"height":200,"label":"玄関⇔廊下 (上がり框) ★v1.4寸法ラベル非表示","est":true,"showDim":false},{"type":"open","room":"genkan","wallFrom":[607,613.5],"wallTo":[681,613.5],"width":74,"sillH":0,"height":200,"label":"玄関北壁 開口(土間→LDK通路。引き戸x602.5..676.5と対) ★v1.9新規","est":true,"showDim":false},{"type":"door","room":"genkan","wallFrom":[612,687.5],"wallTo":[684,687.5],"width":72,"sillH":0,"height":200,"label":"玄関ドア(外開き) ★v1.4寸法ラベル非表示","est":true,"showDim":false},{"type":"door","room":"wic","wallFrom":[935,422.0],"wallTo":[995,422.0],"width":60,"sillH":0,"height":200,"label":"洋室6.2→WIC 白片開き戸(6.2帖側=北へ開く・吊元=東端x995・銀バーハンドル ★v2.3 写真92/93+動画2 t≈2:33-/間取り図実測≈58) ★v1.5修正","est":true,"swing":"N","hinge":"e"},{"type":"open","room":"ldk","wallFrom":[449.5,553.5],"wallTo":[511.5,553.5],"width":62,"sillH":8,"height":66,"label":"ペット小部屋 開口(62x66/床一段上げ≈8の上/位置=小部屋x443..518の中央) ★v1.9 小部屋75幅に追従","est":true,"showDim":false},{"type":"window","room":"west4_5","wallFrom":[103.0,108],"wallTo":[103.0,256],"width":148,"sillH":80,"height":137,"label":"洋室4.5 腰窓(バルコニー面/sillH80・高さ137=上端217/規格サッシW1650xH1370 sill800相当/写真47) ★v1.7 掃き出し→腰窓修正","est":false},{"type":"window","room":"ldk","wallFrom":[103.0,365],"wallTo":[103.0,530],"width":165,"sillH":0,"height":238,"label":"LDK 掃き出し窓(バルコニー) 窓部分165 高さ240近く (199.5は壁区間)","est":false},{"type":"window","room":"west4_8","wallFrom":[221,819.5],"wallTo":[264,819.5],"width":43,"sillH":10,"height":200,"label":"洋室4.8 縦長スリット窓1(縦すべり出し・中間ハンドル/クローゼット東面から壁56) ★v1.7 sill10/h200(動画t≈0:57)","est":false},{"type":"window","room":"west4_8","wallFrom":[284,819.5],"wallTo":[296.5,819.5],"width":12.5,"sillH":10,"height":200,"label":"洋室4.8 スリット窓2(FIX/幅12.5/東壁まで118) ★v1.7 sill10/h200","est":true},{"type":"window","room":"west6_2","wallFrom":[830,101.0],"wallTo":[995,101.0],"width":165,"sillH":30,"height":190,"label":"洋室6.2 大窓(小バルコニー面/黒枠2枚引違い・型ガラス/sill≈30・高さ≈190=上端≈220) ★v1.9 動画2 t≈2:19-2:26で確認: 床までではなく腰≈30の窓 (sill/hはフレーム推定±10)","est":true},{"type":"window","room":"west6_2","wallFrom":[1037.0,190],"wallTo":[1037.0,233],"width":43,"sillH":165,"height":50,"label":"洋室6.2 高所小窓1(すべり出し・白窓台/sill≈165・高さ≈50=上端≈215) ★v1.9 動画2 t≈2:28-2:32で確認 (sill/hはフレーム推定±10)","est":true},{"type":"window","room":"west6_2","wallFrom":[1037.0,245],"wallTo":[1037.0,288],"width":43,"sillH":165,"height":50,"label":"洋室6.2 高所小窓2(すべり出し・白窓台/sill≈165・高さ≈50) ★v1.9 動画2 t≈2:28-2:32で確認 (sill/hはフレーム推定±10)","est":true},{"type":"window","room":"washroom","wallFrom":[525,18.0],"wallTo":[585,18.0],"width":60,"sillH":110,"height":60,"label":"洗面 白枠窓(洗濯機パン上方) ★v1.3整合確認 ※v1.7未検証","est":true}],"outlets":[{"no":1,"room":"west4_5","pos":[140,18.0],"wallSide":"N","h":25,"caps":2,"label":"N壁W端寄り","est":true},{"no":2,"room":"west4_5","pos":[330,18.0],"wallSide":"N","h":25,"caps":2,"label":"N壁E端 テレビ端子","est":true,"tv":true},{"no":3,"room":"west4_5","pos":[130,273.5],"wallSide":"S","h":25,"caps":2,"label":"S壁W寄り(下壁)","est":true},{"no":4,"room":"ldk","pos":[185,283.5],"wallSide":"N","h":25,"caps":2,"label":"LDK北壁(4.5帖間仕切り)・左収納東隣","est":true},{"no":5,"room":"ldk","pos":[240,553.5],"wallSide":"S","h":25,"caps":2,"label":"集約壁(TV+WiFi+LAN)","est":true,"tv":true,"lan":true},{"no":6,"room":"ldk","pos":[560,553.5],"wallSide":"S","h":65,"caps":2,"label":"ニッチカウンター台下(天板下75の下/h≈65) 2口 ★v1.9 ユーザー確定『台下2コ』= カウンター天板の下。x座標は承認済みのまま維持 (⚠x560は新チェーンではシューズBOX区間内、次回壁面再確認)","est":true},{"no":7,"room":"ldk","pos":[614,553.5],"wallSide":"S","h":110,"caps":2,"label":"玄関収納カウンター上・LDK側の壁面(北面W端/h110) ★v1.7 LDK側であることを明確化(座標不変) ※v2.2: 張り出しカウンターfixtureは面一化で削除、名称は歴史的表現","est":true},{"no":8,"room":"ldk","pos":[543,191.0],"wallSide":"N","h":25,"caps":2,"label":"LDK⇔脱衣所の間の壁(LDK上壁・洗面ドア東513.5〜キッチン西面572の区間) ★v1.3 ★v1.9 洗面室163化に追従し壁面y171.5→191へ (x不変)","est":true},{"no":9,"room":"ldk","pos":[646.5,280],"wallSide":"E","h":90,"caps":2,"label":"キッチン カウンターE面中腹(ダイニング向き)","est":true},{"no":10,"room":"washroom","pos":[439.0,140],"wallSide":"W","h":25,"caps":2,"label":"脱衣所内 左壁(W壁)下側 ★v1.3 room=washroomへ","est":true},{"no":11,"room":"washroom","pos":[439.0,45],"wallSide":"W","h":100,"caps":1,"label":"独立洗面台(左ブロック)の左側面 ★v1.3洗面台=左側確定","est":true},{"no":12,"room":"washroom","pos":[476,30],"wallSide":"N","h":90,"caps":2,"label":"洗面台三面鏡裏収納内部(なか2コ) ★v1.3洗面台スワップ追従","est":true},{"no":13,"room":"washroom","pos":[570,18.0],"wallSide":"N","h":110,"caps":2,"label":"洗濯機パン上 ★v1.3洗濯機パン=右側確定に追従","est":true},{"no":14,"room":"ldk","pos":[771.5,210],"wallSide":"E","h":180,"caps":2,"label":"ダイニングE壁 北端上方・冷蔵庫置き場(有効幅169cm=上壁y188〜張り出しスタブy357/日立HZC据付必要66cmに適合) ★v2.0 有効幅追記","est":true},{"no":15,"room":"ldk","pos":[771.5,330],"wallSide":"E","h":110,"caps":2,"label":"ダイニングE壁 中腹(h110)・冷蔵庫スペース(有効幅169cm)内 ★v2.0 有効幅追記","est":true},{"no":16,"room":"west6_2","pos":[782.0,125],"wallSide":"W","h":25,"caps":2,"label":"W壁N寄り(上部区間)","est":true},{"no":17,"room":"west6_2","pos":[1037.0,150],"wallSide":"E","h":25,"caps":2,"label":"E壁N寄り(エアコンA3下方)","est":true},{"no":18,"room":"west6_2","pos":[782.0,330],"wallSide":"W","h":110,"caps":2,"label":"W壁・No.15の裏側(同壁6.2側・同じ高さ中腹h110) ★v1.3","est":true},{"no":19,"room":"west6_2","pos":[1037.0,390],"wallSide":"E","h":25,"caps":2,"label":"E壁S端(WIC上) テレビ+LAN","est":true,"tv":true,"lan":true},{"no":20,"room":"west4_8","pos":[118,626],"wallSide":"N","h":25,"caps":2,"label":"クローゼット部分の上壁(北側壁)・若干西寄り ★v1.3","est":true},{"no":21,"room":"west4_8","pos":[390,563.5],"wallSide":"N","h":25,"caps":2,"label":"N壁E端 テレビ端子","est":true,"tv":true},{"no":22,"room":"west4_8","pos":[385,819.5],"wallSide":"S","h":25,"caps":2,"label":"S壁E寄り(下壁)","est":true},{"no":23,"room":"corridor","pos":[750,613.5],"wallSide":"N","h":25,"caps":2,"label":"トイレドア横・玄関側の壁(廊下側の面) ★v1.7ユーザー確定: 位置・room=corridor維持、所属は玄関/廊下に面した側","est":true},{"no":24,"room":"wic","pos":[1022,422.0],"wallSide":"N","h":25,"caps":2,"label":"WIC内 上壁(No.19の下方/引違い戸東側の壁1010..1037内) ※北面不変のため位置維持","est":true}],"aircons":[{"no":"A1","room":"west4_5","pos":[210,18.0],"wallSide":"N","label":"N壁中央やや西","est":false},{"no":"A2","room":"ldk","pos":[400,553.5],"wallSide":"S","bottomH":200,"label":"S壁ニッチ西寄り上部(実機・下端h≈200/旧A5=同一実機の二重登録を統合) ★v1.7","est":false},{"no":"A3","room":"west6_2","pos":[1037.0,120],"wallSide":"E","label":"E壁N端(バルコニー角)","est":false},{"no":"A4","room":"west4_8","pos":[385,563.5],"wallSide":"N","label":"N壁E端 ★v1.9 実在確定(ユーザー確認)・est解除","est":false}],"fixtures":[{"type":"kitchen","room":"ldk","label":"カウンターキッチン180x74.5 北壁付け(黒マット天板フルフラット=LDK側立ち上がり・腰壁タイル無し/グレージュ〜ダークグレー木目/引き出し2列x2段の黒バーハンドル・キックプレート・グリル操作部は東面=6.2帖/ダイニング側x646.5 ★v2.1 写真38確定・v1.8の西面表現は誤り/オイルガードガラスは西=通路側のみ)","est":false,"rect":[572.0,188.0,74.5,180],"h":85},{"type":"sink","room":"ldk","label":"シンク(白38x55/南端=開放側/KVK黒グースネック水栓) ★v1.8新規(写真38。h89=黒天板の上に僅かに見せる表現)","est":true,"rect":[590,303,38,55],"h":89,"bottomH":80,"showDim":false},{"type":"stove","room":"ldk","label":"コンロ(黒ガラストップ3口 46x60/北端=壁側/前面グリル+黒操作パネルは東面 ★v2.1) ★v1.8新規(写真38)","est":true,"rect":[586,196,46,60],"h":89,"bottomH":80,"showDim":false},{"type":"glass","room":"ldk","label":"オイルガードガラス 西=通路側(透明低背パネル/長さ≈90/天板から≈27=上端h≈115/黒コーナークランプ) ★v1.8 残すのはこの1枚のみ(東=ダイニング側は削除・ユーザー確定)","est":true,"rect":[570.5,188.0,2,90],"h":115,"bottomH":88,"showDim":false},{"type":"rangehood","room":"ldk","label":"レンジフード(黒ボックス型/北端コンロ直上/本体下端h≈150-155/幅≈90) ★v1.7新規(写真)","est":true,"rect":[582,188.0,55,90],"h":202,"bottomH":152,"showDim":false},{"type":"duct","room":"ldk","label":"レンジフード上ダクト囲い(白/幅≈65x下がり≈38/北壁との間/全面下がり天井は無し) ★v1.7新規(写真)","est":true,"rect":[577,188.0,65,52],"h":240,"bottomH":202,"showDim":false},{"type":"tile_wall","room":"ldk","label":"コンロ背面 白グロスキッチンパネル(北壁面) ★v1.7新規(写真)","est":true,"rect":[572.0,186.0,74.5,2],"h":240,"color":"#f8f8f6","showDim":false},{"type":"panel","room":"ldk","label":"給湯リモコン+インターホンモニタ(E壁 壁87.5区間 y≈395-415/h≈130) ★v2.2 写真30・83: 6.2引き戸の北隣の壁に付く (v1.7のy500-520は新ドア位置では開口内になるため移動)","est":true,"rect":[770.0,395,1.5,20],"h":142,"bottomH":118,"showDim":false},{"type":"panel","room":"ldk","label":"LDK→6.2引き戸 上部欄間(ダーク木目垂れ壁/開口169=y444.5..613.5の上部h200..240) ★v2.2 開口の南北修正に追従(写真30・83。v2.1のy357..526から移動)","est":true,"rect":[764.5,444.5,2,169],"h":240,"bottomH":200,"color":"#4a382c","showDim":false},{"type":"stub_wall","room":"ldk","label":"冷蔵庫仕切りスタブ(E壁から西へ65x厚7/y357..364/床〜天井/冷蔵庫スペース南限) ★v2.2 家具衝突判定対象として登録(壁描画はLDKポリゴン切欠き由来)","est":true,"rect":[706.5,357.0,65,7],"h":240,"shortLabel":"仕切65","showDim":false},{"type":"closet","room":"west4_5","label":"4.5帖クローゼット(4.5帖の部屋の中の収納/奥行65/4.5帖側から両開き・枕棚+ハンガーパイプ) ★v1.8 写真48確定","est":true,"rect":[364.0,18.0,65,165],"shortLabel":"4.5帖CL"},{"type":"closet","room":"west4_8","label":"洋室4.8 クローゼット(左下2ブロック統合=1つ/枕棚+ハンガーパイプ/扉は東面の両開き ★v1.8 写真61/63確定)","est":true,"rect":[103.0,626.0,62,193.5],"shortLabel":"CL"},{"type":"stub_wall","room":"ldk","label":"ペットニッチ西仕切り壁(タイル壁ゾーンとの間/S壁から北へ出っ張り30/床〜天井/厚み7はest) ★v1.9 x342..349へ(チェーン組み直し)","est":true,"rect":[342.0,523.5,7,30],"h":240,"shortLabel":"仕切壁30"},{"type":"stub_wall","room":"ldk","label":"ペットニッチ東仕切り壁(シューズボックスと直結・北面y492.5でシューズBOXと面一 ★v2.2/S壁から北へ出っ張り61/床〜天井/厚み7.5はest) ★v1.9 x518..525.5へ(チェーン組み直し)","est":true,"rect":[518.0,492.5,7.5,61],"h":240,"shortLabel":"仕切壁61"},{"type":"counter","room":"ldk","label":"ニッチ一体カウンター(幅169 x349..518/奥行50/グレーブラウン天板高75・厚4のスラブのみ=下は空洞・脚元オープン/西≈94はキャットウォーク等・東75はペット小部屋の上/天板に配線孔・黒ゴム蓋西寄り) ★v1.9 幅284.5→169(ユーザー確定チェーン)","est":true,"rect":[349.0,503.5,169.0,50],"h":75,"bottomH":71,"shortLabel":"ニッチ一体カウンター169"},{"type":"petbase","room":"ldk","label":"ペット小部屋(カウンター東端下 横75 x443..518/開口62x66/床白で一段上げ≈8-10/内側面=木目パネル/内部コンセントh≈15※番号外/壁帯に食い込む表現/天面70とスラブ下端71の間1cmはest公差) ★v1.9 幅150→75(ユーザー確定)","est":false,"rect":[443.0,553.5,75,60],"h":70,"shortLabel":"ペット小部屋"},{"type":"wall_cabinet","room":"ldk","label":"吊戸棚(ダーク木目2枚開き/幅86/下端h127〜天井238/内部棚板2枚/ニッチ東端揃え=ペット小部屋の真上 x432..518) ★v1.9 新ニッチ幅に追従","est":true,"rect":[432.0,518.5,86,35],"h":238,"bottomH":127,"color":"#4a382c","showDim":false},{"type":"shelf","room":"ldk","label":"段違い白棚 上段(幅65x奥行20/棚面h≈141/エアコンA2下/x378..443=キャットウォーク側東端揃え) ★v1.9 新ニッチ幅に追従","est":true,"rect":[378.0,533.5,65,20],"h":141,"bottomH":138,"color":"#f5f5f2","showDim":false},{"type":"shelf","room":"ldk","label":"段違い白棚 下段(幅40/棚面h≈104/上段の西下/x349..389) ★v1.9 新ニッチ幅に追従","est":true,"rect":[349.0,533.5,40,20],"h":104,"bottomH":101,"color":"#f5f5f2","showDim":false},{"type":"monitor","room":"ldk","label":"モニター(白枠黒画面 ≈18x14/中心h≈112/白棚の東隣・ペット小部屋開口の上方 x449..467) ★v1.9 新ニッチ幅に追従","est":true,"rect":[449,549.0,18,4],"h":119,"bottomH":105,"showDim":false},{"type":"hook_rail","room":"ldk","label":"フックレール(白スリット3個/h≈170/シューズBOX北面 y492.5 ★v2.2面一化に追従/実幅≈55-60だが短縮表現) ⚠位置暫定","est":true,"rect":[534,489.5,21,3],"h":173,"bottomH":167,"color":"#ffffff","showDim":false},{"type":"vent","room":"ldk","label":"丸型給気口(φ≈15/h≈200/シューズBOX北面上部 y492.5 ★v2.2面一化に追従) ⚠位置暫定","est":true,"rect":[560,489.5,15,3],"h":208,"bottomH":193,"showDim":false},{"type":"tile_wall","room":"ldk","label":"グレージュ大判ストーンタイルTV壁=ザラザラ壁(マーブル調石目・目地グリッド 床〜天井/x185..342=引き戸東端〜西仕切り壁/上端の白レール=ただの見切り線でピクチャーレールではない(ユーザー確定)/下部にTV端子+コンセント群No.5) ★v2.0 写真55の色味・見切り線を反映 ★v1.9 x185..342へ移動","est":true,"rect":[185.0,552.5,157,1],"h":240,"color":"#c9c4bb","showDim":false},{"type":"vent","room":"west4_8","label":"通気口(角型白ルーバー・横に火災報知器/4.8帖N壁=LDKとの間仕切り壁の部屋側 y563.5/引き戸開口x103..185の東隣 x190..215/h≈183-203/正体=v1.9『白い操作盤様ボックス』→ユーザー確定で4.8帖の通気口・写真54) ★v2.0 type panel→vent・room ldk→west4_8 ⚠x位置はest・次回内覧で要確認","est":true,"rect":[190,563.5,25,4],"h":203,"bottomH":183,"showDim":false},{"type":"panel","room":"ldk","label":"リモコンホルダー(h≈130/下部にコンセントh≈30※番号外/⚠位置未確定。旧位置x138..148は引き戸開口内になるためタイル壁西端へ暫定移動) ★v1.9暫定移動","est":true,"rect":[218,550.5,10,3],"h":138,"bottomH":122,"showDim":false},{"type":"shelf","room":"ldk","label":"LDK左収納(幅66南北x奥行65/フラップ扉/窓上帯) ※LDK付属のまま(ユーザー呼称もLDK左収納)","est":true,"rect":[103.0,283.5,65,66],"h":240},{"type":"curtain_box","room":"ldk","label":"カーテンボックス(白/LDK掃き出し窓の上) ★v1.7新規(写真54)","est":true,"rect":[103.5,365,10,165],"h":240,"bottomH":226,"color":"#f7f7f7","showDim":false},{"type":"bathtub","room":"bathroom","label":"浴槽160x79(白/フタ・握りバー)","est":false,"rect":[612.0,18.0,160,79],"h":55},{"type":"washstand","room":"washroom","label":"Panasonic三面鏡洗面台(左=W側ブロック) ★v1.3スワップ","est":false,"rect":[439.0,18.0,75,55],"h":190},{"type":"shelf","room":"washroom","label":"洗濯機パン(右=E側ブロック/縦60/上方空間60/蛇口高115) ★v1.3スワップ","est":false,"rect":[538.0,18.0,64,60]},{"type":"toilet","room":"toilet","label":"TOTO手洗いタンク付き+ウォシュレット(西向き)","est":true,"rect":[775,628,75,48]},{"type":"shelf","room":"toilet","label":"トイレ白吊戸棚(便器に向かって左壁/北面y623.5後退に追従 ★v2.3)","est":true,"rect":[760,623.5,60,20],"h":180},{"type":"entrance","room":"genkan","label":"玄関土間(白マーブル調タイル/上がり框は斜め=NE角の三角床near廊下で近似) ★v1.7","est":false,"rect":[607,613.5,77,74]},{"type":"closet","room":"ldk","label":"シューズボックス一体箱(x525.5..602.5=ニッチ東仕切り壁と直結・北面y492.5で仕切り壁61と段差なしの面一 ★v2.2 写真71/奥行121=北張り出し61+壁帯/幅77 床〜天井/玄関側=白2枚扉x内部黒棚6-7段・分電盤最上部・上部グレー木目吊戸棚・ロールスクリーン・旧PS/DPS・下段フラップ扉収納(旧『張り出しカウンター』)を内包する一体表現/room=ldkはLDKビュー実体表示のため) ★v1.9 チェーン組み直しで607..684→525.5..602.5","est":true,"rect":[525.5,492.5,77,121.0],"h":240,"shortLabel":"シューズBOX"},{"type":"step","room":"ldk","label":"玄関→LDK通路床(壁帯内x602.5..676.5/引き戸下〜玄関北開口をつなぐ上がり床/LDKフロア高さ) ★v1.9新規","est":true,"rect":[602.5,553.5,74,60],"h":2,"color":"#c8a882","showDim":false},{"type":"slide_zone","room":"ldk","label":"玄関引き戸スライドゾーン(x684..771.5, y553.5..603.5/玄関→LDK片引き戸を開けるとパネル82がこの区画の前=y553.5面に駐まる ★v2.2 写真37/同時に6.2引き戸南半分の前アプローチ床 写真30・83/家具配置は不可)","est":true,"rect":[684,553.5,87.5,50.0],"shortLabel":"引き戸スライドゾーン","showDim":false},{"type":"panel","room":"ldk","label":"玄関引き戸 固定袖パネル西端(木目グレー/x676.5..681/引き戸と同材 ★v2.3 写真37・81-85)","est":true,"rect":[676.5,557.6,4.5,3],"h":200,"color":"#7c6b5c","showDim":false},{"type":"glass","room":"ldk","label":"玄関引き戸 袖パネルの縦スリットすりガラス(x681..689/閉時パネル東縁のすぐ東で光を通す ★v2.3 写真37・81)","est":true,"rect":[681,557.6,8,3],"h":200,"showDim":false},{"type":"panel","room":"ldk","label":"玄関引き戸 固定袖パネル(木目グレー/x689..771.5=6.2ドア角まで・h200/開けたパネル82はこの前=北側に重なって駐まる=壁の連続性 ★v2.3 写真37・81-85・動画2 t≈3:10-)","est":true,"rect":[689,557.6,82.5,3],"h":200,"color":"#7c6b5c","shortLabel":"袖パネル","showDim":false},{"type":"mirror","room":"genkan","label":"姿見ミラー(W≈40xH≈155/下端床上≈12/玄関ドアを正面に映す壁=土間西壁MB側⚠壁面は推定) ★v1.7新規(動画)","est":true,"rect":[607,630,2.5,40],"h":167,"bottomH":12,"showDim":false},{"type":"step","room":"genkan","label":"上がり框 斜め(土間と廊下の境界が斜行=ドア東枠x676.5から南東へ下る斜行壁の下端部/NE角三角床h12で近似/角度≈35°⚠正確な角度未確定) ★v1.9 玄関→LDK通路床に接続(座標は維持)","est":true,"poly":[[652,613.5],[684,613.5],[684,660]],"h":12,"color":"#c9a97e","showDim":false},{"type":"shelf","room":"genkan","label":"MB(メーターボックス/ポーチ側から開閉/下に消火器)","est":true,"rect":[424.5,613.5,55,40],"h":240},{"type":"shelf","room":"wic","label":"WIC L字枕棚+ハンガーパイプ(南壁沿い/換気ユニット2台が天井付近) ★v1.3南壁へ","est":true,"rect":[864.0,514.0,173,30],"h":240},{"type":"pillar","room":"ldk","label":"柱11(4.5帖クローゼットSW角・LDK側) ★v1.6実在確定・ラベル非表示","est":false,"rect":[364.0,283.5,11,11],"h":240,"showDim":false},{"type":"pillar","room":"west4_8","label":"柱9.5(4.8帖NW角) ★v1.6実在確定・ラベル非表示","est":false,"rect":[103.0,553.5,9.5,10],"h":240,"showDim":false},{"type":"balcony","room":"balcony_main","label":"メインバルコニー(南西/乳白ガラスパネル+花ブロック/物干し金物・給湯器・室外機)","est":true,"rect":[10,8,75,622]},{"type":"balcony","room":"balcony_ne","label":"小バルコニー(北東/東端47cmは壁ブロック)","est":true,"rect":[792,8,198,75]}],"lights":[{"room":"ldk","type":"downlight","pos":[590,310],"est":true},{"room":"ldk","type":"downlight","pos":[647,310],"est":true},{"room":"ldk","type":"downlight","pos":[704,310],"est":true},{"room":"ldk","type":"downlight","pos":[755,310],"est":true},{"room":"ldk","type":"downlight","pos":[230,400],"est":true},{"room":"ldk","type":"downlight","pos":[310,400],"est":true},{"room":"ldk","type":"downlight","pos":[230,480],"est":true},{"room":"ldk","type":"downlight","pos":[310,480],"est":true},{"room":"west6_2","type":"downlight","pos":[840,170],"est":true},{"room":"west6_2","type":"downlight","pos":[960,170],"est":true},{"room":"west6_2","type":"ceiling_socket","pos":[904,260],"est":false},{"room":"west4_8","type":"downlight","pos":[220,690],"est":true},{"room":"west4_8","type":"downlight","pos":[330,690],"est":true},{"room":"west4_5","type":"ceiling_socket","pos":[228,145],"est":true},{"room":"corridor","type":"downlight","pos":[719,650],"est":true},{"room":"genkan","type":"downlight","pos":[645,650],"est":true},{"room":"washroom","type":"downlight","pos":[520,90],"est":true},{"room":"toilet","type":"downlight","pos":[800,650],"est":true},{"room":"wic","type":"downlight","pos":[950,483],"est":true},{"room":"bathroom","type":"downlight","pos":[692,95],"est":true}],"zones":[{"key":"living","room":"ldk","name":"リビング","rect":[103.0,283.5,327.0,270.0],"est":true,"label":"西側: 掃き出し窓・タイルTV壁・ニッチ前 (x103..430)"},{"key":"dining","room":"ldk","name":"ダイニング","rect":[430,283.5,341.5,320.0],"est":true,"label":"東側: 冷蔵庫壁・6.2帖側 (x430..771.5)"},{"key":"kitchen","room":"ldk","name":"キッチン","rect":[429.0,191.0,342.5,92.5],"est":true,"label":"キッチン帯 (x429..771.5 の北側)"}]};
+
+// ── 家具カタログシード (catalog_seed_v1.4.json) ──
+var CATALOG_SEED = {"_comment":"nozaROOM マイ家具カタログ v1.4 (room/catalog シード)。寸法cm (w=幅, d=奥行, h=高さ)。room=配置予定部屋 (south48=洋室4.8帖 / east62=洋室6.2帖 / ldk=LDK)。全23商品、寸法は公式ソース裏取り済み (v1.1=2026-08-20 / v1.2追加3点=2026-08-21 / v1.3=2026-08-21: colors=カラーバリエーション追加7商品(猫ケージ/Aerus×3/ソファMK02/KM504/GOKUMIN B01D) + マットレス3点追加(GOKUMIN B01D・ニトリLH3 S/SS, type=mattress)) + (v1.4=2026-08-21: zone=LDKサブゾーン初期配置先 kitchen/dining/living を9商品に追加)","items":[{"name":"作業デスク DESKF019W","model":"100-DESKF019W","room":"south48","w":80,"d":60,"h":70,"color":"#ffffff","type":"desk","url":"https://direct.sanwa.co.jp/ItemPage/100-DESKF019W","memo":"天板W80×D60cm=外形、高さ70cm固定、天板下有効高約68.4cm、耐荷重30kg、キャスター付き、白"},{"name":"作業デスク DESKF020W","model":"100-DESKF020W","room":"south48","w":90,"d":60,"h":70,"color":"#ffffff","type":"desk","url":"https://direct.sanwa.co.jp/ItemPage/100-DESKF020W","memo":"幅90cm版。同シリーズに幅100/120cm版あり (021W/022W)"},{"name":"オフィスチェア サリダ YL9 (提案)","model":"YL9-BLEL","room":"south48","w":67,"d":70.5,"h":122.5,"color":"#2e2e2e","type":"chair","url":"https://shop.itoki.jp/shop/g/g24083400/","memo":"メッシュ5万円条件の推薦1位。背=樹脂メッシュ/座=クッション、H113.5-122.5・座面高42.5-51.5cm、実売4.0〜5.5万。代替: SIHOO Doro C300 (フルメッシュ W70×D74.5、公式セール5.2万) / COFO Chair Pro (背メッシュ W66×D68、セール時3万円台)"},{"name":"キャットタワー PETEPELA スリム 143cm","model":"B0C58KLPZV","room":"south48","w":54,"d":44,"h":143,"color":"#d9c7a7","type":"cattower","url":"https://www.amazon.co.jp/dp/B0C58KLPZV","memo":"据え置き2本柱、ベージュ。トップベッド45×30・ハンモック50×40。設置寸法はフットプリント54×44"},{"name":"キャットケージ タンスのゲン 3段","model":"52800019 (90280)","room":"south48","w":82,"d":57,"h":157,"color":"#f1efe9","type":"catcage","url":"https://www.tansu-gen.jp/products/52800019","memo":"トイレ一体型3段・引き出し収納・キャスター付き ¥13,999。色: モスグリーン/グレージュ/ミルキーホワイト","colors":[{"name":"モスグリーン","hex":"#7a8471"},{"name":"グレージュ","hex":"#b5a795"},{"name":"ミルキーホワイト","hex":"#f1efe9"}]},{"name":"Aerus すのこベッド ダブル ブラック","model":"RASIK Aerus D / 03ダブル×04ブラック (B0D2KGTTMS)","room":"east62","w":140,"d":207.5,"h":66,"color":"#2b2b2b","type":"bed","url":"https://rasik.style/products/183204-bk","memo":"マットレス140×195対応・床面高32/19.5cm切替・宮棚コンセント付き・ヘッドボード高27cm(棚奥行11cm)・パイン材","colors":[{"name":"ナチュラル","hex":"#c8a06a"},{"name":"ブラウン","hex":"#6b4a33"},{"name":"ホワイト","hex":"#f3f1ec"},{"name":"ブラック","hex":"#2b2b2b"}]},{"name":"Aerus すのこベッド セミシングル ブラック","model":"RASIK Aerus SS / 13セミシングル×04ブラック (B0D2K9YB7P)","room":"east62","w":80,"d":207.5,"h":66,"color":"#35322f","type":"bed","url":"https://rasik.style/products/183204-bk","memo":"マットレス80×195対応・床面高32/19.5cm切替・宮棚コンセント付き","colors":[{"name":"ナチュラル","hex":"#c8a06a"},{"name":"ブラウン","hex":"#6b4a33"},{"name":"ホワイト","hex":"#f3f1ec"},{"name":"ブラック","hex":"#2b2b2b"}]},{"name":"Aerus すのこベッド シングル ホワイト","model":"RASIK Aerus S / 01シングル×03ホワイト (B0D2KGT76N)","room":"east62","w":97,"d":207.5,"h":66,"color":"#f3f1ec","type":"bed","url":"https://rasik.style/products/183204","memo":"マットレス97×195対応・床面高32/19.5cm切替・宮棚コンセント付き","colors":[{"name":"ナチュラル","hex":"#c8a06a"},{"name":"ブラウン","hex":"#6b4a33"},{"name":"ホワイト","hex":"#f3f1ec"},{"name":"ブラック","hex":"#2b2b2b"}]},{"name":"GOKUMIN デュアルコイルマットレス ダブル","model":"B01D","room":"east62","w":140,"d":195,"h":25,"color":"#4a4a52","type":"mattress","url":"https://gokumin.co.jp/products/b01s","memo":"厚25cm 2層ポケットコイル。Aerus D(140×195)にジャスト適合","colors":[{"name":"チャコールグレー","hex":"#4a4a52"},{"name":"ホワイト","hex":"#f1efe9"}]},{"name":"ニトリ Nスリープ ラグジュアリー LH3 シングル","model":"2190600013765","room":"east62","w":97,"d":198,"h":38,"color":"#3e4147","type":"mattress","url":"https://www.nitori-net.jp/ec/product/2190600013765s/","memo":"厚38cm ダークグレー。Aerus S(97×195)に幅ジャスト・長さ+3cmはみ出し"},{"name":"ニトリ Nスリープ ラグジュアリー LH3 セミシングル","model":"2190600019132","room":"east62","w":85,"d":198,"h":38,"color":"#3e4147","type":"mattress","url":"https://www.nitori-net.jp/ec/product/2190600019132/","memo":"厚38cm。⚠️Aerus SS(80×195)には幅+5cm/長さ+3cmオーバーで載らない"},{"name":"冷蔵庫 日立 HZC 540L","model":"R-HZC54Y XH","room":"ldk","zone":"kitchen","w":65,"d":69.9,"h":184.3,"color":"#4b4d52","type":"fridge","url":"https://kadenfan.hitachi.co.jp/rei/lineup/rhzc54y/spec.html","memo":"フレンチ6ドア・チャコールグレー・540L・118kg。据付必要: 幅66cm (左右各5mm)・上方3cm・背面0cm可。奥行はハンドル除く"},{"name":"レンジボード エトナ 60OP","model":"エトナ 60OP WH/SI","room":"ldk","zone":"kitchen","w":60,"d":42,"h":181,"color":"#f4f4f2","type":"shelf","url":"https://www.nitori-net.jp/ec/product/2190200007317/","memo":"ホワイト/シルバー。中段オープン家電置き (床から85cm)。60系共通外形 (WH/SIは廃番、寸法2ソース裏取り)"},{"name":"3人掛けソファ MK02","model":"MK02 KD (1150174)","room":"ldk","zone":"living","w":174,"d":85,"h":85,"color":"#8a7666","type":"sofa","url":"https://www.nitori-net.jp/ec/product/1150174/","memo":"布張り・座面高約40cm・S型スプリング・約39kg。色: モカ/ネイビー/ライトグリーン/ライトグレー","colors":[{"name":"モカ","hex":"#8a7666"},{"name":"ネイビー","hex":"#31394f"},{"name":"ライトグリーン","hex":"#9aa98a"},{"name":"ライトグレー","hex":"#c9c9c9"}]},{"name":"43V型テレビ (代表: REGZA 43M550M)","model":"42-43V型 未定","room":"ldk","zone":"living","w":96.2,"d":19.6,"h":58.4,"color":"#1a1a1a","type":"tv","url":"https://kakaku.com/item/K0001574314/","memo":"スタンド込み代表寸法。42-43V型一般: 幅95-97×高58-63×スタンド奥行18-25cm。機種確定後に更新"},{"name":"ダイニングテーブル T-01 90","model":"Nコレクション T-01 90 MBR (4008045)","room":"ldk","zone":"dining","w":90,"d":80,"h":70,"color":"#7a5a3e","type":"table","url":"https://www.nitori-net.jp/ec/product/4008045/","memo":"2人用・天板90×80・天然木ビーチ材・ミドルブラウン"},{"name":"ダイニングチェア C-60S 肘無し","model":"C-60S NシールドF MBR/BR (2110100003295)","room":"ldk","zone":"dining","w":49.8,"d":61.3,"h":91.9,"color":"#7d5a3c","type":"chair","url":"https://www.nitori-net.jp/ec/product/2110100003295/","memo":"座面高46.5cm・回転式・約8kg・¥22,500"},{"name":"ダイニングチェア C-60S 肘付き","model":"C-60S肘付き NシールドF MBR/BR (2110100003325)","room":"ldk","zone":"dining","w":53.5,"d":61.3,"h":91.9,"color":"#7d5a3c","type":"chair","url":"https://www.nitori-net.jp/ec/product/2110100003325/","memo":"座面高46.5cm・肘高さ約61cm・回転式・約9.5kg・¥27,500"},{"name":"キッチンボード KM504 幅100","model":"KM504 100R LGY (2190200007591)","room":"ldk","zone":"kitchen","w":100,"d":51,"h":207,"color":"#c6c9c8","type":"shelf","url":"https://www.nitori-net.jp/ec/product/2190200007560s/","memo":"棚右オープン・ライトグレー・¥109,900・99kg。コンセント穴: 中央+スライド扉上部。家電用スライド棚+引出3段+スモークガラス引き戸","colors":[{"name":"ライトグレー","hex":"#c6c9c8"},{"name":"グレー","hex":"#8e9192"}]},{"name":"山善 折りたたみローテーブル","model":"山善 75×50 鏡面 ブラック","room":"ldk","zone":"living","w":75,"d":50,"h":32.5,"color":"#111111","type":"table","url":null,"memo":"折れ脚・完成品・角丸・鏡面ブラック (寸法はユーザー指定値)"},{"name":"エルゴトロン LX モニターアーム","model":"45-241-224","room":"south48","w":10,"d":10,"h":33,"color":"#1c1c1e","type":"monitorarm","url":"https://www.ergotron.com/ja-jp/products/product-details/45-241","memo":"デスクマウント・マットブラック。ポール高約18-20cm(7-8in)+リフト昇降33cm、最大リーチ64cm(延長46cm)=アーム2節≈32cm×2、チルト後70°/前5°・パン360°・回転360°、耐荷重3.2〜11.3kg(34インチまで)、VESA MIS-D 100×100/75×75、クランプ対応天板厚10〜60mm(グロメット〜76mm)。3D簡易寸法=クランプ設置フットプリント10×10×ポール高33"},{"name":"MSI MAG 342CQR E2 (34型曲面UWQHD)","model":"MAG 342CQR E2 (9S6-3DB64H-070)","room":"south48","w":80.9,"d":27,"h":51.4,"color":"#17181c","type":"monitor","url":"https://www.msi.com/Monitor/MAG-342CQR-E2/Specification","memo":"34インチ VA 1500R曲面 3440x1440 180Hz。スタンド込み W808.6×D270×H514mm(公式spec sheet)/パネルのみ W808.6×D119.7×H364mm・5.4kg(スタンド込6.95kg)。VESA 75×75。昇降0-90mm。アーム搭載時は W80.9×D12×H36.4 相当"},{"name":"BenQ MOBIUZ EX2710 (27型)","model":"EX2710","room":"south48","w":61.4,"d":21.7,"h":41,"color":"#22242a","type":"monitor","url":"https://www.displaydb.com/monitor/benq-ex2710","memo":"27インチ IPS 1920x1080 144Hz。スタンド込み W614.1×D216.65×H409.6mm・6.2kg(displaydb/BenQ)。高さ調整HAS約130mm(最大時H約54cm)。VESA 100×100。パネルのみ約W614×D9×H364(est)。アーム搭載時は W61.4×D9×H36.4 相当"}]};
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ═══════════════ 定数・状態 ═══════════════
+const R = ROOM_DATA;
+const CH = R.ceilingH;              // 天井高 240
+const WT = 5;                        // 描画上の壁厚(片側)。隣接室が背中合わせに描いて実壁厚を埋める
+const ROOMS_UI = [
+  { key: 'all',     name: '全体' },
+  { key: 'ldk',     dataKey: 'ldk',     name: 'LDK' },
+  { key: 'west45',  dataKey: 'west4_5', name: '洋室4.5' },
+  { key: 'east62',  dataKey: 'west6_2', name: '洋室6.2' },
+  { key: 'south48', dataKey: 'west4_8', name: '洋室4.8' }
+];
+const ROOM_LABEL = { ldk: 'LDK', west45: '洋室4.5帖', east62: '洋室6.2帖', south48: '洋室4.8帖' };
+const EDITABLE_ROOMS = ['ldk', 'west45', 'east62', 'south48'];
+function dataKeyOf(k) { const r = ROOMS_UI.find(x => x.key === k); return r ? r.dataKey : null; }
+
+const FLOOR_COLORS = { wood: 0xc8a882, bath: 0xd8dde2, cf_beige: 0xe6dcc8, tile_marble: 0xeceae6, concrete: 0xb7b9bc };
+const WALL_COLOR = 0xe8e2da;
+const FIX_STYLE = {
+  kitchen:      { color: 0x878c94, h: 85 },
+  closet:       { color: 0xf0ece4, h: 240 },
+  petbase:      { color: 0x8a7a6d, h: 240 },
+  bathtub:      { color: 0xfafafa, h: 55 },
+  washstand:    { color: 0xf5f3ef, h: 190 },
+  toilet:       { color: 0xfafafa, h: 42 },
+  pillar:       { color: 0xd8d2ca, h: 240 },
+  shelf:        { color: 0xb9a488, h: 90 },
+  // ★v1.7 追加 type (bottomH=下端高さ / color=#hex個別色 / poly=多角形近似 に対応)
+  counter:      { color: 0xf3f1ec, h: 65 },    // 一体カウンター (白ベース + グレーブラウン天板)
+  glass:        { color: 0xcfe8ef, h: 115 },   // オイルガードガラス (半透明クリア)
+  rangehood:    { color: 0x1c1c1e, h: 202 },   // レンジフード (黒ボックス)
+  duct:         { color: 0xf4f4f2, h: 240 },   // ダクト囲い (白)
+  tile_wall:    { color: 0xd8d6d2, h: 240 },   // タイル壁 (薄グレー板)
+  mirror:       { color: 0xcfdae0, h: 167 },   // 姿見 (反射風パネル)
+  wall_cabinet: { color: 0x5a4636, h: 240 },   // 吊戸棚 (木目)
+  hook_rail:    { color: 0xffffff, h: 173 },   // フックレール (白小物)
+  vent:         { color: 0xf6f6f6, h: 208 },   // 給気口 (白小物)
+  panel:        { color: 0xf5f5f4, h: 200 },   // 操作盤・リモコン・ロールスクリーン等
+  monitor:      { color: 0x22252a, h: 119 },   // モニター (白枠黒画面)
+  step:         { color: 0xc9a97e, h: 12 },    // 上がり框 斜め (三角床 poly)
+  curtain_box:  { color: 0xf7f7f7, h: 240 },   // カーテンボックス (白)
+  // ★v1.8 追加 type
+  stub_wall:    { color: 0xe8e2da, h: 240 },   // ペットニッチ両側の仕切り壁 (壁色)
+  sink:         { color: 0xffffff, h: 89 },    // キッチンシンク (白)
+  stove:        { color: 0x1a1b1e, h: 89 },    // コンロ (黒ガラストップ)
+  // ★v2.2 追加 type
+  slide_zone:   { color: 0xcfc3b3, h: 240 }    // 引き戸スライドゾーン (床マーカーのみ描画 + 全高で家具配置ブロック)
+};
+
+let currentUser = localStorage.getItem('aritomo_user') || '';
+let currentRoom = 'all';
+let plansData = {};        // roomKey -> { planId: plan }
+let catalogData = {};      // catalogId -> item
+let selectedPlanId = {};   // roomKey -> planId | null
+let workItems = {};        // 現在の部屋・案の作業コピー (itemId -> item)
+let dirty = false;
+let selectedItemId = null;
+let mode = 'view';         // 'view' | 'place'
+let outletsVisible = true;
+let furnTab = 'catalog';
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// ═══════════════ データアクセス層 (本番=Firebase / ?debug=1=メモリ内スタブ) ═══════════════
+const DBI = DEBUG ? (function () {
+  const mem = { plans: {}, catalog: {} };
+  let seq = 0;
+  const log = function () { console.log.apply(console, ['[nozaROOM debug DB]'].concat([].slice.call(arguments))); };
+  return {
+    now: function () { return Date.now(); },
+    loadAll: async function () { log('loadAll'); return { plans: mem.plans, catalog: mem.catalog }; },
+    seedCatalog: async function (items) {
+      items.forEach(function (it) { mem.catalog['c' + (++seq)] = it; });
+      log('seedCatalog', items.length + '件'); return mem.catalog;
+    },
+    createPlan: async function (roomKey, data) {
+      const id = 'p' + (++seq);
+      (mem.plans[roomKey] = mem.plans[roomKey] || {})[id] = JSON.parse(JSON.stringify(data));
+      log('createPlan', roomKey, id, data); return id;
+    },
+    updatePlan: async function (roomKey, id, patch) {
+      Object.assign(mem.plans[roomKey][id], JSON.parse(JSON.stringify(patch)));
+      log('updatePlan', roomKey, id, patch);
+    },
+    deletePlan: async function (roomKey, id) { delete mem.plans[roomKey][id]; log('deletePlan', roomKey, id); }
+  };
+})() : {
+  now: function () { return firebase.database.ServerValue.TIMESTAMP; },
+  loadAll: async function () {
+    const rs = await Promise.all([db.ref('room/plans').once('value'), db.ref('room/catalog').once('value')]);
+    return { plans: rs[0].val() || {}, catalog: rs[1].val() || {} };
+  },
+  seedCatalog: async function (items) {
+    const updates = {};
+    items.forEach(function (it) { updates[db.ref('room/catalog').push().key] = it; });
+    await db.ref('room/catalog').update(updates);
+    return updates;
+  },
+  createPlan: async function (roomKey, data) { const ref = db.ref('room/plans/' + roomKey).push(); await ref.set(data); return ref.key; },
+  updatePlan: async function (roomKey, id, patch) { await db.ref('room/plans/' + roomKey + '/' + id).update(patch); },
+  deletePlan: async function (roomKey, id) { await db.ref('room/plans/' + roomKey + '/' + id).remove(); }
+};
+
+// ═══════════════ テーマ ═══════════════
+window.toggleTheme = function () {
+  isDark = !isDark;
+  localStorage.setItem('aritomo_theme', isDark ? 'dark' : 'light');
+  document.body.classList.add('theme-switching');
+  document.body.classList.toggle('light', !isDark);
+  document.getElementById('themeToggle').textContent = isDark ? '🌙' : '☀️';
+  const mc = document.querySelector('meta[name="theme-color"]');
+  if (mc) mc.content = isDark ? '#0a0e14' : '#FFF0F3';
+  if (scene) scene.background = new THREE.Color(isDark ? 0x11161f : 0xffe9ee);
+  const restore = function () { document.body.classList.remove('theme-switching'); };
+  requestAnimationFrame(function () { requestAnimationFrame(restore); });
+  setTimeout(restore, 100);
+};
+document.getElementById('themeToggle').textContent = isDark ? '🌙' : '☀️';
+
+// ═══════════════ モーダル + フォーカストラップ + トースト ═══════════════
+let trapEl = null, lastFocus = null;
+function trapFocus(el) { trapEl = el; lastFocus = document.activeElement; }
+function releaseTrap() { trapEl = null; if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} } lastFocus = null; }
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Tab' || !trapEl) return;
+  const f = trapEl.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href]');
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  else if (!trapEl.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+}, true);
+
+function openModal(title, bodyHtml) {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.classList.add('modal-open');
+  trapFocus(document.getElementById('modal'));
+}
+let modalOnCancel = null;   // ★v1.8 confirmModal のキャンセル時コールバック (Esc/背景クリックでも発火)
+function closeModalFn() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.body.classList.remove('modal-open');
+  releaseTrap();
+  const c = modalOnCancel;
+  modalOnCancel = null;
+  if (c) c();
+}
+window.closeModal = function (e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  closeModalFn();
+};
+// ★v1.8 native confirm() 置き換え: アプリ内モーダルの確認ダイアログ (openModal 流儀)
+function confirmModal(title, msg, okLabel, onOk, onCancel) {
+  openModal(title,
+    '<div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">' + esc(msg) + '</div>' +
+    '<div class="modal-actions"><button class="btn-secondary" id="cmCancel">キャンセル</button>' +
+    '<button class="btn-danger" id="cmOk">' + esc(okLabel || 'OK') + '</button></div>');
+  modalOnCancel = onCancel || null;
+  document.getElementById('cmOk').onclick = function () {
+    modalOnCancel = null;
+    closeModalFn();
+    onOk();
+  };
+  document.getElementById('cmCancel').onclick = function () { closeModalFn(); };
+}
+function promptModal(title, label, defVal, cb) {
+  openModal(title,
+    '<div class="form-group"><label class="form-label">' + esc(label) + '</label>' +
+    '<input class="form-input" id="pmInput" value="' + esc(defVal || '') + '"></div>' +
+    '<div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">キャンセル</button>' +
+    '<button class="btn-primary" id="pmOk">OK</button></div>');
+  const input = document.getElementById('pmInput');
+  document.getElementById('pmOk').onclick = function () {
+    const v = input.value.trim(); if (!v) return;
+    closeModalFn(); cb(v);
+  };
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('pmOk').click(); });
+  setTimeout(function () { input.focus(); input.select(); }, 150);
+}
+
+let hintBase = '', hintTimer = null;
+function setHint(text) { hintBase = text; document.getElementById('vpHint').textContent = text; }
+function toast(msg) {
+  clearTimeout(hintTimer);
+  document.getElementById('vpHint').textContent = msg;
+  hintTimer = setTimeout(function () { document.getElementById('vpHint').textContent = hintBase; }, 1800);
+}
+
+// ═══════════════ Three.js シーン ═══════════════
+let scene = null, camera = null, renderer = null, controls = null;
+let furnGroup = null, selHelper = null;
+const roomGroups = {};      // dataKey(部屋key) -> THREE.Group
+const furnMeshes = {};      // itemId -> mesh
+const pickables = [];       // コンセント・設備 (ツールチップ用)
+const outletMeshes = [];    // コンセントプレート (表示トグル用)
+const roomBBox = {};        // 部屋key -> {minX,maxX,minZ,maxZ}
+let allBBox = null;
+let camPreset = 'iso';
+
+function group(dk) {
+  if (!roomGroups[dk]) { const g = new THREE.Group(); g.name = dk; scene.add(g); roomGroups[dk] = g; }
+  return roomGroups[dk];
+}
+function mat(color, opts) { return new THREE.MeshLambertMaterial(Object.assign({ color: color }, opts || {})); }
+function addBox(g, sx, sy, sz, cx, cy, cz, color, extra) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat(color));
+  m.position.set(cx, cy, cz);
+  if (extra) Object.assign(m.userData, extra);
+  g.add(m);
+  return m;
+}
+function pointInPoly(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+    if (((yi > pt[1]) !== (yj > pt[1])) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function buildFloor(room) {
+  const shape = new THREE.Shape(room.poly.map(function (p) { return new THREE.Vector2(p[0], p[1]); }));
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(Math.PI / 2);
+  const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: FLOOR_COLORS[room.floor] || 0xc8a882, side: THREE.DoubleSide }));
+  m.position.y = room.key.indexOf('balcony') === 0 ? -2 : 0;
+  m.userData.kind = 'floor';
+  group(room.key).add(m);
+}
+
+// バルコニーの建物側エッジ判定 (そこには手すりを描かない)
+function touchesBuilding(horiz, c, a, b) {
+  return R.rooms.some(function (r) {
+    if (r.key.indexOf('balcony') === 0) return false;
+    const poly = r.poly;
+    for (let i = 0; i < poly.length; i++) {
+      const q1 = poly[i], q2 = poly[(i + 1) % poly.length];
+      const qh = Math.abs(q1[1] - q2[1]) < 0.01;
+      if (qh !== horiz) continue;
+      const qc = qh ? q1[1] : q1[0];
+      if (Math.abs(qc - c) > 25) continue;
+      const qa = qh ? Math.min(q1[0], q2[0]) : Math.min(q1[1], q2[1]);
+      const qb = qh ? Math.max(q1[0], q2[0]) : Math.max(q1[1], q2[1]);
+      if (Math.min(qb, b) - Math.max(qa, a) > 10) return true;
+    }
+    return false;
+  });
+}
+
+// ★v1.9 壁の透過: カメラと注視点 (部屋中心) の間にある壁メッシュを毎フレーム半透明化する。
+//        markWallGhostable で壁平面 (horiz + c) を記録し、animate 内 updateWallGhost で判定。
+const wallGhostMeshes = [];
+function markWallGhostable(m, horiz, c) {
+  m.userData.wallPlane = { horiz: horiz, c: c };
+  m.userData.baseOpacity = (m.material.opacity !== undefined && m.material.transparent) ? m.material.opacity : 1;
+  m.userData.baseTransparent = !!m.material.transparent;
+  wallGhostMeshes.push(m);
+}
+function updateWallGhost() {
+  if (!camera || !controls) return;
+  const t = controls.target;
+  for (let i = 0; i < wallGhostMeshes.length; i++) {
+    const m = wallGhostMeshes[i];
+    const w = m.userData.wallPlane;
+    const camSide = (w.horiz ? camera.position.z : camera.position.x) - w.c;
+    const tgtSide = (w.horiz ? t.z : t.x) - w.c;
+    const occ = camSide * tgtSide < -0.001;          // 壁平面がカメラと注視点を分ける = 手前の壁
+    if (m.userData.dimMat && m.material === m.userData.dimMat) continue;  // 他部屋淡色化中はそのまま
+    const mtl = m.material;
+    if (occ) {
+      if (!mtl.transparent || mtl.opacity !== 0.12) {
+        mtl.transparent = true; mtl.opacity = 0.12; mtl.depthWrite = false; mtl.needsUpdate = true;
+      }
+    } else if (mtl.opacity === 0.12 || mtl.transparent !== m.userData.baseTransparent) {
+      mtl.transparent = m.userData.baseTransparent; mtl.opacity = m.userData.baseOpacity;
+      mtl.depthWrite = true; mtl.needsUpdate = true;
+    }
+  }
+}
+
+function openingRange(o) {
+  const oh = Math.abs(o.wallFrom[1] - o.wallTo[1]) < 0.01;
+  return {
+    horiz: oh,
+    c: oh ? o.wallFrom[1] : o.wallFrom[0],
+    a: oh ? Math.min(o.wallFrom[0], o.wallTo[0]) : Math.min(o.wallFrom[1], o.wallTo[1]),
+    b: oh ? Math.max(o.wallFrom[0], o.wallTo[0]) : Math.max(o.wallFrom[1], o.wallTo[1])
+  };
+}
+
+function buildWalls(room) {
+  const g = group(room.key);
+  const isBal = room.key.indexOf('balcony') === 0;
+  const H = isBal ? 110 : CH;
+  const railMat = isBal ? new THREE.MeshLambertMaterial({ color: 0xf2f4f6, transparent: true, opacity: 0.45 }) : null;
+  const poly = room.poly, n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const p1 = poly[i], p2 = poly[(i + 1) % n];
+    const horiz = Math.abs(p1[1] - p2[1]) < 0.01;
+    const c = horiz ? p1[1] : p1[0];
+    const a = horiz ? Math.min(p1[0], p2[0]) : Math.min(p1[1], p2[1]);
+    const b = horiz ? Math.max(p1[0], p2[0]) : Math.max(p1[1], p2[1]);
+    if (b - a < 0.5) continue;
+    const inNeg = pointInPoly(horiz ? [(a + b) / 2, c - 2] : [c - 2, (a + b) / 2], poly);
+    const outSign = inNeg ? 1 : -1;                 // 壁は境界線から外側へ WT 分
+    if (isBal && touchesBuilding(horiz, c, a, b)) continue;
+    const wc = c + outSign * WT / 2;                // 壁中心線
+    // このエッジに載る開口 (壁厚10〜18cmをまたぐ相手室定義の開口も許容12cmで拾う)
+    const ops = R.openings.map(function (o) { return { o: o, r: openingRange(o) }; })
+      .filter(function (x) {
+        return x.r.horiz === horiz && Math.abs(x.r.c - c) <= 12 && Math.min(x.r.b, b) - Math.max(x.r.a, a) > 2;
+      })
+      .map(function (x) { return { o: x.o, s: Math.max(x.r.a, a), e: Math.min(x.r.b, b) }; })
+      .sort(function (x, y) { return x.s - y.s; });
+    function seg(s, e, y0, y1) {
+      if (e - s < 0.5 || y1 - y0 < 0.5) return;
+      const len = e - s, hgt = y1 - y0, mid = (s + e) / 2;
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(horiz ? len : WT, hgt, horiz ? WT : len),
+        railMat ? railMat.clone() : mat(WALL_COLOR));
+      m.position.set(horiz ? mid : wc, y0 + hgt / 2, horiz ? wc : mid);
+      markWallGhostable(m, horiz, c);   // ★v1.9 手前壁の自動半透明化 対象
+      g.add(m);
+    }
+    let cur = a;
+    for (let k = 0; k < ops.length; k++) {
+      const o = ops[k].o, s = ops[k].s, e = ops[k].e;
+      if (s > cur) seg(cur, s, 0, H);
+      const sill = o.sillH || 0;
+      const top = Math.min(sill + (o.height || 200), H);
+      if (o.type === 'window') {
+        if (sill > 2) seg(s, e, 0, sill);
+        if (top < H - 1) seg(s, e, top, H);
+      } else {
+        if (top < H - 1) seg(s, e, top, H);        // 鴨居上の壁
+      }
+      // ガラス/ドアパネルは開口を定義した部屋のエッジ処理時に1回だけ描く
+      if (o.room === room.key) buildOpeningPanel(g, o, s, e, sill, top, horiz, wc, outSign);
+      cur = Math.max(cur, e);
+    }
+    if (cur < b) seg(cur, b, 0, H);
+  }
+}
+
+// ★v2.2[8] ドア開閉レジストリ: クリックで開閉トグル (視覚状態のみ・保存対象外)。
+//          各ドアの可動パーツは closed/open のトランスフォームを組で持ち、即時切替する。
+const doors = {};
+let doorSeq = 0;
+function toggleDoor(id) {
+  const d = doors[id];
+  if (!d) return;
+  d.open = !d.open;
+  d.parts.forEach(function (p) {
+    p.mesh.position.x = d.open ? p.ox : p.cx;
+    p.mesh.position.z = d.open ? p.oz : p.cz;
+    p.mesh.rotation.y = d.open ? p.orot : p.crot;
+  });
+  toast('🚪 ' + (d.label || 'ドア') + (d.open ? ' を開けました' : ' を閉めました'));
+}
+
+// ★v2.3[9] 引き出し開閉レジストリ (キッチン本体東面 2列x2段 / KM504 引出3段+スライドテーブル+スライド棚 /
+//          エトナ60OP スライド棚): クリックで開閉トグル (視覚シミュレーションのみ・保存対象外・衝突判定外)。
+//          開くと引き出しボックスが実奥行きぶん前方へ突き出し、
+//          「引き出し先端 → 前方の障害物 (壁/固定設備/他の家具)」の残り幅を cm ラベルで表示する。
+const drawers = {};
+let drawerSeq = 0;
+function regDrawer(def) {
+  // def: { id?, label, boxes:[mesh], depth, rayFn()->{origins:[Vector3], dir:Vector3, exclude, labelPos:Vector3} }
+  const id = def.id || ('k' + (++drawerSeq));
+  const prev = drawers[id];
+  drawers[id] = Object.assign({ id: id, open: prev ? prev.open : false, remain: prev ? prev.remain : null }, def);
+  drawers[id].boxes.forEach(function (m) { m.visible = drawers[id].open; });
+  return id;
+}
+function drawerClearance(d) {
+  // 引き出し正面(閉時の面)から開く方向へレイを飛ばし、最初の障害物までの距離 (cm) を測る。
+  // 除外: 自分自身 (exclude 配下) / 開いている引き出しボックス (視覚のみの存在) / 床 (レイは水平)
+  const info = d.rayFn();
+  let best = null;
+  const rc = new THREE.Raycaster();
+  rc.far = 3000;
+  info.origins.forEach(function (org) {
+    rc.set(org, info.dir);
+    const hits = rc.intersectObjects(scene.children, true);
+    for (let i = 0; i < hits.length; i++) {
+      const ob = hits[i].object;
+      if (!ob.isMesh) continue;
+      let p = ob, skip = false;
+      while (p) {
+        if (p === info.exclude || p.userData.drawerBox) { skip = true; break; }
+        p = p.parent;
+      }
+      if (skip) continue;
+      if (best === null || hits[i].distance < best) best = hits[i].distance;
+      break;   // このレイの最初の有効ヒットのみ
+    }
+  });
+  return best;
+}
+function toggleDrawer(id) {
+  const d = drawers[id];
+  if (!d) return;
+  d.open = !d.open;
+  d.boxes.forEach(function (m) { m.visible = d.open; });
+  if (d.open) {
+    const dist = drawerClearance(d);
+    // originOff = レイ原点を面から浮かせた分の補正 (めり込み誤ヒット防止で 0.6〜1cm 浮かせている)
+    d.remain = dist === null ? null : Math.max(0, Math.round(dist + (d.originOff || 0) - d.depth));
+    toast('🗄 ' + d.label + ' を開けました' +
+      (d.remain !== null ? ' — 先端から前方 残り約' + d.remain + 'cm' : ''));
+  } else {
+    d.remain = null;
+    toast('🗄 ' + d.label + ' を閉めました');
+  }
+}
+// 開いている引き出しの「残り幅」小ラベル (dimLabel 方式の HTML オーバーレイ)
+const drawerLabelEls = {};
+function updateDrawerLabels() {
+  const wrap = document.getElementById('drawerLabels');
+  if (!wrap || !renderer) return;
+  Object.keys(drawers).forEach(function (id) {
+    const d = drawers[id];
+    const dead = !d.boxes.length || !d.boxes[0].parent;
+    const show = !dead && d.open && d.remain !== null;
+    let el = drawerLabelEls[id];
+    if (!show) {
+      if (el) el.style.display = 'none';
+      if (dead) { if (el) { wrap.removeChild(el); delete drawerLabelEls[id]; } delete drawers[id]; }
+      return;
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'drawer-label';
+      wrap.appendChild(el);
+      drawerLabelEls[id] = el;
+    }
+    const info = d.rayFn();
+    projV.copy(info.labelPos).project(camera);
+    if (projV.z > 1) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.style.left = ((projV.x + 1) / 2 * renderer.domElement.clientWidth) + 'px';
+    el.style.top = ((-projV.y + 1) / 2 * renderer.domElement.clientHeight) + 'px';
+    el.textContent = '残り' + d.remain + 'cm';
+  });
+}
+
+function buildOpeningPanel(g, o, s, e, sill, top, horiz, wc, outSign) {
+  const len = e - s, hgt = top - sill, mid = (s + e) / 2, cy = sill + hgt / 2;
+  if (len < 1 || hgt < 1) return;
+  o.__drawn = true;   // ★v2.3 部屋エッジに載らない開口 (4.8帖CL=fixture面) を後段で拾うためのマーク
+  if (o.type === 'window') {
+    // 半透明ブルーのガラス + 黒枠
+    const glass = new THREE.Mesh(
+      new THREE.PlaneGeometry(len, hgt),
+      new THREE.MeshBasicMaterial({ color: 0x8fc4ff, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
+    if (!horiz) glass.rotateY(Math.PI / 2);
+    glass.position.set(horiz ? mid : wc, cy, horiz ? wc : mid);
+    g.add(glass);
+    const frame = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.PlaneGeometry(len, hgt)),
+      new THREE.LineBasicMaterial({ color: 0x1a1a1a }));
+    if (!horiz) frame.rotateY(Math.PI / 2);
+    frame.position.copy(glass.position);
+    g.add(frame);
+    // 中桟 (縦1本) で窓らしく
+    if (len > 60) {
+      const mull = new THREE.Mesh(new THREE.BoxGeometry(horiz ? 2 : 3, hgt, horiz ? 3 : 2), mat(0x1a1a1a));
+      mull.position.copy(glass.position);
+      g.add(mull);
+    }
+  } else if (o.type === 'door' || o.type === 'sliding') {
+    // ★v1.8 3色分け: 収納扉(クローゼット/WIC)=白い無垢パネル+枠 / 引き戸=グレー木目 / 居室開き戸=ブラウン
+    // ★v2.2[4] ドア・引き戸パネルは壁の自動透過 (markWallGhostable) と部屋淡色化の対象外
+    //          (LDKから見た洋室ドアが「ガラスの自動ドア」に見える問題の修正。Box=両面同色で両面同デザイン)
+    // ★v2.2[8] クリックで開閉: doors レジストリに可動パーツを closed/open トランスフォーム付きで登録
+    const door = doors['d' + (++doorSeq)] = {
+      id: 'd' + doorSeq, open: false, parts: [],
+      label: (o.label || 'ドア').split('(')[0].replace(/ ★.*/, '').trim()
+    };
+    const AX = function (u, v) { return horiz ? u : v; };   // (along, cross) → x
+    const AZ = function (u, v) { return horiz ? v : u; };   // (along, cross) → z
+    const addPart = function (m, openU, openV, openRot) {   // 可動パーツ登録
+      m.userData.doorId = door.id;
+      door.parts.push({ mesh: m, cx: m.position.x, cz: m.position.z, crot: m.rotation.y,
+                        ox: AX(openU, openV), oz: AZ(openU, openV), orot: openRot || 0 });
+    };
+    // ★v2.3 sI = 開く側の絶対方向 (+ = +x/+z)。既定=部屋内側、ROOM_DATA の swing (N/S/E/W) が最優先
+    let sI = -outSign;
+    if (/外開き|廊下側へ開く/.test(o.label || '')) sI = -sI; // 外開き系は逆側へ
+    if (o.swing) sI = (o.swing === 'S' || o.swing === 'E') ? 1 : -1;
+    const hingePart = function (m, hu) {                     // ヒンジ回転 (90°) の開位置
+      const du = (horiz ? m.position.x : m.position.z) - hu;
+      const dv = (horiz ? m.position.z : m.position.x) - wc;
+      const s2 = sI * (du >= 0 ? 1 : -1);   // ★v2.3 パーツ位置に依らず開く側 = sI (両開き両リーフ同方向 / ヒンジe対応)
+      addPart(m, hu - dv * s2, wc + du * s2, Math.PI / 2);
+    };
+    const isStorage = /クローゼット|WIC/.test(o.label || '');
+    if (isStorage) {
+      // 収納扉: 不透明の白パネル + 枠 + 取っ手。両開きは2枚(★v2.3 leaves:4=2組両開き)に分割し、
+      // 各リーフが外側ヒンジで90°開く (開く側は swing/部屋内側)
+      const frame = addBox(g, horiz ? len : 3, hgt, horiz ? 3 : len, horiz ? mid : wc, cy, horiz ? wc : mid,
+        0xcfc9bf, { kind: 'fixture', info: o.label || '収納扉', doorId: door.id });
+      pickables.push(frame);                                 // 枠は静的 (クリック対象のみ)
+      const leaves = o.leaves || (/両開き/.test(o.label || '') ? 2 : 1);
+      const span = (len - 4) / leaves;
+      const m4 = (s + e) / 2;
+      for (let li = 0; li < leaves; li++) {
+        const lc = s + 2 + span * (li + 0.5);
+        let hu;                                              // 吊元: 各組の外側 (1枚扉は hinge 指定 or s側)
+        if (leaves === 4) hu = [s + 2, m4 - 1, m4 + 1, e - 2][li];
+        else if (leaves === 2) hu = li === 1 ? e - 2 : s + 2;
+        else hu = o.hinge === 'e' ? e - 2 : s + 2;           // ★v2.3 WIC=吊元東(e)
+        const leaf = addBox(g, horiz ? span - 2 : 5, hgt - 5, horiz ? 5 : span - 2,
+          horiz ? lc : wc, cy - 1, horiz ? wc : lc, 0xf7f5f0, { kind: 'fixture', info: o.label || '収納扉' });
+        hingePart(leaf, hu);
+        pickables.push(leaf);
+        const hoff = span * 0.42 * (li % 2 === 0 ? 1 : -1) * (leaves === 1 && o.hinge === 'e' ? -1 : 1);
+        hingePart(addBox(g, horiz ? 2 : 7, 12, horiz ? 7 : 2,
+          horiz ? lc + hoff : wc, cy, horiz ? wc : lc + hoff, 0x9a9a9a), hu);   // 取っ手 (組の召し合わせ側)
+      }
+      return;
+    }
+    const color = o.type === 'sliding' ? 0x7c6b5c : 0x6b4b38;   // 引き戸=グレー木目寄り / 開き戸=ダークブラウン
+    if (o.type === 'sliding' && o.panels === 2) {
+      // ★v2.1 引き戸2枚構成 (LDK→6.2 開口169 写真30/83): 各パネル≈len/2、レール前後に少しオフセット、
+      //        黒引手は召し合わせ (中央) 寄りに1本ずつ
+      // ★v2.2[8] 開: 北/西側パネル (pi=0) が 南/東側へスライドして pi=1 に重なる (写真83 の開き方)
+      const span = len / 2 + 1.5;
+      for (let pi = 0; pi < 2; pi++) {
+        const pc = pi === 0 ? s + span / 2 : e - span / 2;
+        const off = wc + (pi === 0 ? -1.6 : 1.6);
+        const shift = pi === 0 ? (e - span / 2) - pc : 0;    // pi=0 のみ移動
+        const pnl = addBox(g, horiz ? span : 3, hgt, horiz ? 3 : span,
+          horiz ? pc : off, cy, horiz ? off : pc, color, { kind: 'fixture', info: o.label || 'ドア' });
+        addPart(pnl, pc + shift, off, 0);
+        pickables.push(pnl);
+        const hp = mid + (pi === 0 ? -1 : 1) * len * 0.07;
+        const hdl = addBox(g, horiz ? 2.5 : 4.4, 12, horiz ? 4.4 : 2.5,
+          horiz ? hp : off, cy, horiz ? off : hp, 0x1c1c1e);
+        addPart(hdl, hp + shift, off, 0);
+      }
+      return;
+    }
+    if (o.type === 'sliding') {
+      // ★v2.2[8] 片引き戸: slideDir (ROOM_DATA v2.2) の方向へパネル長ぶんスライドして開く
+      //          (玄関→LDK: 東へ固定袖パネルの前に駐まる ★v2.3 / 4.8帖: 東へ 178..260 / 洗面: 東へ ★v2.3)
+      // ★v2.3 パネル面はアウトセット (開口を定義した部屋側の壁面のすぐ前 pc = wc - outSign*4.4)。
+      //        壁中心 wc に置くと開放時に駐まり先の壁の中へ埋まって見えなくなる (洗面/4.8 で発生していた)
+      const pc = wc - outSign * 4.4;
+      const panel = addBox(g, horiz ? len : 3, hgt, horiz ? 3 : len, horiz ? mid : pc, cy, horiz ? pc : mid, color,
+        { kind: 'fixture', info: o.label || 'ドア' });
+      pickables.push(panel);
+      const dAlong = (o.slideDir === 'E' || o.slideDir === 'S') ? 1 : (o.slideDir ? -1 : 1);
+      const shift = len * dAlong;
+      addPart(panel, mid + shift, pc, 0);
+      // ★v1.9 黒引手 (写真30: グレー木目引き戸の縦長黒スリット引手)
+      const hp = s + len * 0.12;
+      const hdl = addBox(g, horiz ? 2.5 : 4.4, 12, horiz ? 4.4 : 2.5,
+        horiz ? hp : pc, cy, horiz ? pc : hp, 0x1c1c1e);
+      addPart(hdl, hp + shift, pc, 0);
+      if (o.petDoor) {
+        // ★v2.3 petPos: ペット戸のパネル内位置 (玄関引き戸=W端寄り。写真37: 閉時シューズBOXコーナー直東)
+        const pu = (o.petPos === 'W' || o.petPos === 'N') ? s + 17 :
+                   (o.petPos === 'E' || o.petPos === 'S') ? e - 17 : mid;
+        const pd = addBox(g, horiz ? 26 : 4.5, 30, horiz ? 4.5 : 26, horiz ? pu : pc, 16, horiz ? pc : pu, 0x24211e);
+        addPart(pd, pu + shift, pc, 0);
+      }
+    } else {
+      // 開き戸: ヒンジ端で90°回転して開く (既定=s側ヒンジ、o.hinge:'e' or ラベル『ヒンジ南』= e側 ★v2.3)
+      const panel = addBox(g, horiz ? len : 3, hgt, horiz ? 3 : len, horiz ? mid : wc, cy, horiz ? wc : mid, color,
+        { kind: 'fixture', info: o.label || 'ドア' });
+      pickables.push(panel);
+      const hu = (o.hinge === 'e' || /ヒンジ南/.test(o.label || '')) ? e - 1.5 : s + 1.5;
+      hingePart(panel, hu);
+      if (o.petDoor) {
+        const pd = addBox(g, horiz ? 26 : 4.5, 30, horiz ? 4.5 : 26, horiz ? mid : wc, 16, horiz ? wc : mid, 0x24211e);
+        hingePart(pd, hu);
+      }
+    }
+  }
+  // type 'open' (上がり框等) はパネルなし
+}
+
+function buildFixture(f) {
+  const st = FIX_STYLE[f.type];
+  if (!st) return;                                   // entrance / balcony は床・手すりで表現済み
+  const g = group(f.room);
+  const color = f.color ? new THREE.Color(f.color).getHex() : st.color;
+  const topH = f.h || st.h;                          // h = 上端高さ
+  const botH = f.bottomH || 0;                       // ★v1.7 bottomH = 下端高さ (吊戸棚・棚・壁付け機器)
+  const bh = Math.max(topH - botH, 1);
+  if (f.poly) {
+    // ★v1.7 poly 近似 (斜め上がり框等): XY Shape → 床平面へ回転、上端 topH まで押し出し
+    const shape = new THREE.Shape(f.poly.map(function (p) { return new THREE.Vector2(p[0], p[1]); }));
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: bh, bevelEnabled: false });
+    geo.rotateX(Math.PI / 2);                        // 押し出しは -Y 方向になる
+    const pm = new THREE.Mesh(geo, mat(color));
+    pm.position.y = topH;
+    pm.userData.kind = 'fixture'; pm.userData.info = f.label;
+    g.add(pm); pickables.push(pm);
+    return;
+  }
+  const x = f.rect[0], y = f.rect[1], dx = f.rect[2], dy = f.rect[3];
+  const sx = Math.max(dx - 1, 1.5), sz = Math.max(dy - 1, 1.5);
+  const cx = x + dx / 2, cy = botH + bh / 2, cz = y + dy / 2;
+  let body;
+  if (f.type === 'slide_zone') {
+    // ★v2.2[9] 引き戸スライドゾーン: 床マーカー (薄板) のみ描画。衝突判定は solidFixtures 側で全高ブロック
+    body = new THREE.Mesh(new THREE.BoxGeometry(sx, 0.8, sz),
+      new THREE.MeshLambertMaterial({ color: 0xcfc3b3, transparent: true, opacity: 0.6 }));
+    body.position.set(cx, 0.4, cz);
+    body.userData.kind = 'fixture'; body.userData.info = f.label;
+    g.add(body);
+    pickables.push(body);
+    return;
+  }
+  if (f.type === 'glass') {
+    // ★v1.7 オイルガードガラス: 半透明クリアパネル
+    body = new THREE.Mesh(new THREE.BoxGeometry(sx, bh, sz),
+      new THREE.MeshBasicMaterial({ color: 0xcfe8ef, transparent: true, opacity: 0.28 }));
+    body.position.set(cx, cy, cz);
+    body.userData.kind = 'fixture'; body.userData.info = f.label;
+    g.add(body);
+    const ge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, bh, sz)),
+      new THREE.LineBasicMaterial({ color: 0x1a1a1a }));
+    ge.position.copy(body.position);
+    g.add(ge);
+  } else if (f.type === 'counter') {
+    // ★v1.8 一体カウンター: 天板スラブのみ (bottomH〜h)。下部ボックスは描かない=脚元オープン
+    body = addBox(g, sx, bh, sz, cx, botH + bh / 2, cz, 0x86705d,
+      { kind: 'fixture', info: f.label });
+  } else if (f.type === 'monitor') {
+    // ★v1.7 モニター: 白枠 + 黒画面
+    body = addBox(g, sx, bh, sz, cx, cy, cz, 0xf2f2f2, { kind: 'fixture', info: f.label });
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(sx - 3, 1), Math.max(bh - 3, 1)),
+      new THREE.MeshBasicMaterial({ color: 0x101216, side: THREE.DoubleSide }));
+    scr.position.set(cx, cy, y - 0.4);                  // 北面 (LDK側) に画面
+    g.add(scr);
+  } else if (f.type === 'mirror') {
+    // ★v1.7 姿見: 反射風の明るいパネル + 黒枠
+    body = addBox(g, sx, bh, sz, cx, cy, cz, color, { kind: 'fixture', info: f.label });
+    const me = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, bh, sz)),
+      new THREE.LineBasicMaterial({ color: 0x222222 }));
+    me.position.copy(body.position);
+    g.add(me);
+  } else {
+    body = addBox(g, sx, bh, sz, cx, cy, cz, color, { kind: 'fixture', info: f.label });
+  }
+  pickables.push(body);
+  if (f.type === 'kitchen') {
+    addBox(g, dx - 1, 3, dy - 1, cx, topH + 1.5, cz, 0x2c2c30);   // 黒マット天板 (フルフラット)
+    // ★v2.1 写真38確定: 引き出し・黒バーハンドルは東面 (6.2帖/ダイニング側 x646.5、2列x2段)。
+    //        コンロ前グリル黒帯・下部キックプレートも東面 (v1.8 の西=通路側表現は誤り)
+    [[y + 135, 76], [y + 135, 52], [y + 45, 76], [y + 45, 52]].forEach(function (hp) {
+      addBox(g, 1.6, 2.4, 26, x + dx - 0.2, hp[1], hp[0], 0x17181a);
+    });
+    addBox(g, 1.4, 20, 50, x + dx - 0.6, 70, y + 32, 0x141414);   // 北端コンロ下グリル+操作部 (東面)
+    addBox(g, 1.2, 9, dy - 10, x + dx - 0.4, 4.5, cz, 0x26241f);  // 下部キックプレート (東面)
+    // ★v2.3[9] キッチン引き出し開閉 (東面 2列x2段、奥行≈45)。クリックプレート + 突き出しボックス + 残り幅ラベル
+    const KD = 45, fE = x + dx;
+    const dCol = new THREE.Color(color).multiplyScalar(0.82).getHex();
+    [[y + 45, '南列'], [y + 135, '北列']].reverse().forEach(function (colDef) {
+      const colZ = colDef[0], colW = 82;
+      [[58, 26, 76, '上段'], [28, 29, 52, '下段']].forEach(function (row) {
+        const ry = row[0], rh = row[1], hy = row[2];
+        const plate = addBox(g, 0.9, rh, colW - 8, fE + 0.45, ry + rh / 2, colZ, color,
+          { kind: 'fixture', drawerLabel: 'キッチン引き出し(' + colDef[1] + row[3] + ')' });
+        pickables.push(plate);
+        const boxes = [
+          addBox(g, KD, rh - 3, colW - 12, fE + KD / 2, ry + rh / 2, colZ, dCol),          // 引き出し箱
+          addBox(g, 1.6, rh, colW - 8, fE + KD + 0.8, ry + rh / 2, colZ, color),           // 前板
+          addBox(g, 1.4, 2.4, 26, fE + KD + 1.8, hy, colZ, 0x17181a)                       // ハンドル
+        ];
+        boxes.forEach(function (m) { m.visible = false; m.userData.drawerBox = true; });
+        pickables.push(boxes[0], boxes[1]);   // 開いた引き出しをクリックで閉じられるように
+        plate.userData.drawerId = boxes[0].userData.drawerId = boxes[1].userData.drawerId = regDrawer({
+          label: 'キッチン引き出し ' + colDef[1] + row[3], boxes: boxes, depth: KD, originOff: 1,
+          rayFn: function () {
+            return {
+              origins: [new THREE.Vector3(fE + 1, ry + rh / 2, colZ),
+                        new THREE.Vector3(fE + 1, ry + rh / 2, colZ - colW * 0.35),
+                        new THREE.Vector3(fE + 1, ry + rh / 2, colZ + colW * 0.35)],
+              dir: new THREE.Vector3(1, 0, 0), exclude: null,
+              labelPos: new THREE.Vector3(fE + KD, ry + rh + 14, colZ)
+            };
+          }
+        });
+      });
+    });
+  }
+  if (f.type === 'petbase') {
+    // 開口 62x66 をLDK側(北面)に暗色パネルで表現 (床一段上げ8の上)
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(62, 66),
+      new THREE.MeshBasicMaterial({ color: 0x3a3129, side: THREE.DoubleSide }));
+    p.position.set(cx, 8 + 33, y - 0.4);
+    g.add(p);
+  }
+  if (f.type === 'toilet') {
+    addBox(g, 16, 95, Math.max(dy - 8, 2), x + dx - 8, 47.5, cz, 0xfafafa);  // タンク
+  }
+  if (f.type === 'bathtub') {
+    addBox(g, Math.max(dx - 14, 2), 4, Math.max(dy - 14, 2), cx, topH - 4, cz, 0x9fb8c8); // 湯面風
+  }
+}
+
+function outletInward(side) { return side === 'N' ? [0, 1] : side === 'S' ? [0, -1] : side === 'W' ? [1, 0] : [-1, 0]; }
+
+function buildOutlet(o) {
+  const g = group(o.room);
+  const d = outletInward(o.wallSide);
+  const alongX = (o.wallSide === 'N' || o.wallSide === 'S');
+  const m = addBox(g, alongX ? 7 : 2.4, 12, alongX ? 2.4 : 7,
+    o.pos[0] + d[0] * 1.6, o.h || 25, o.pos[1] + d[1] * 1.6, 0xffffff,
+    { kind: 'outlet', info: o });
+  pickables.push(m);
+  outletMeshes.push(m);
+}
+
+function buildAircon(a) {
+  const g = group(a.room);
+  const d = outletInward(a.wallSide);
+  const alongX = (a.wallSide === 'N' || a.wallSide === 'S');
+  const y = a.bottomH ? a.bottomH + 13 : 218;   // ★v1.7 bottomH=下端高さ指定 (A2=200)。A5 特例は削除 (A5自体を廃止)
+  const m = addBox(g, alongX ? 80 : 24, 26, alongX ? 24 : 80,
+    a.pos[0] + d[0] * 13, y, a.pos[1] + d[1] * 13, 0xf6f7f8,
+    { kind: 'fixture', info: 'エアコン ' + a.no + ' (' + a.label + ')' });
+  pickables.push(m);
+}
+
+// ★v1.8 天井ライトの表現は削除 (downlight円盤・引掛シーリングマークを描画しない)。
+//        ROOM_DATA.lights のデータ自体は保持 (buildLight は呼ばない)。
+
+function buildStatic() {
+  let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+  R.rooms.forEach(function (r) {
+    const xs = r.poly.map(function (p) { return p[0]; });
+    const ys = r.poly.map(function (p) { return p[1]; });
+    roomBBox[r.key] = { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs), minZ: Math.min.apply(null, ys), maxZ: Math.max.apply(null, ys) };
+    minX = Math.min(minX, roomBBox[r.key].minX); maxX = Math.max(maxX, roomBBox[r.key].maxX);
+    minZ = Math.min(minZ, roomBBox[r.key].minZ); maxZ = Math.max(maxZ, roomBBox[r.key].maxZ);
+    buildFloor(r);
+    buildWalls(r);
+  });
+  allBBox = { minX: minX, maxX: maxX, minZ: minZ, maxZ: maxZ };
+  // ★v2.3 部屋ポリゴンのエッジに載らない建具 (4.8帖CL両開き = クローゼットfixture東面 x165) を描画
+  R.openings.forEach(function (o) {
+    if (o.__drawn || (o.type !== 'door' && o.type !== 'sliding')) return;
+    const r0 = openingRange(o);
+    const dirSign = o.swing ? ((o.swing === 'S' || o.swing === 'E') ? 1 : -1) : 1;
+    const wc = r0.c + dirSign * 2;   // 固定設備面のすぐ前 (開く側へ2cm)
+    buildOpeningPanel(group(o.room), o, r0.a, r0.b, o.sillH || 0,
+      Math.min((o.sillH || 0) + (o.height || 200), CH), r0.horiz, wc, -dirSign);
+  });
+  R.fixtures.forEach(buildFixture);
+  R.outlets.forEach(buildOutlet);
+  R.aircons.forEach(buildAircon);
+  // ★v1.8 R.lights は描画しない (天井ライト表現の削除)
+}
+
+// 部屋フォーカス: 選択部屋以外を淡色化
+function setFocus(dataKey) {
+  Object.keys(roomGroups).forEach(function (k) {
+    const dim = !!dataKey && k !== dataKey;
+    roomGroups[k].traverse(function (obj) {
+      if (!obj.isMesh && !obj.isLineSegments) return;
+      if (obj.userData.doorId) return;   // ★v2.2[4] ドア・引き戸パネルは淡色化 (半透明化) しない
+      if (!obj.userData.baseMat) obj.userData.baseMat = obj.material;
+      if (dim) {
+        if (!obj.userData.dimMat) {
+          const dm = obj.userData.baseMat.clone();
+          dm.transparent = true; dm.opacity = 0.10; dm.depthWrite = false;
+          obj.userData.dimMat = dm;
+        }
+        obj.material = obj.userData.dimMat;
+      } else {
+        obj.material = obj.userData.baseMat;
+      }
+    });
+  });
+}
+
+// ═══════════════ カメラ ═══════════════
+function viewBBox() {
+  // ★v1.9 LDK サブゾーン選択中はそのゾーン矩形にフォーカス
+  if (currentRoom === 'ldk' && currentZone) {
+    const z = (R.zones || []).find(function (q) { return q.key === currentZone; });
+    if (z && z.rect) return { minX: z.rect[0], maxX: z.rect[0] + z.rect[2], minZ: z.rect[1], maxZ: z.rect[1] + z.rect[3] };
+  }
+  if (currentRoom !== 'all') return roomBBox[dataKeyOf(currentRoom)] || allBBox;
+  return allBBox;
+}
+// ★v1.9 LDK サブゾーンチップ (LDK全体 / リビング / ダイニング / キッチン)。案は従来通りLDKで1つ、ゾーンはビュー補助
+let currentZone = null;
+function renderZoneChips() {
+  const el = document.getElementById('zoneChips');
+  if (!el) return;
+  const zones = (R.zones || []).filter(function (z) { return z.room === 'ldk'; });
+  if (currentRoom !== 'ldk' || !zones.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML =
+    '<button class="zone-chip' + (!currentZone ? ' active' : '') + '" onclick="setZone(\'all\')">LDK全体</button>' +
+    zones.map(function (z) {
+      return '<button class="zone-chip' + (currentZone === z.key ? ' active' : '') + '" onclick="setZone(\'' + z.key + '\')">' + esc(z.name) + '</button>';
+    }).join('');
+}
+window.setZone = function (zk) {
+  currentZone = (zk === 'all') ? null : zk;
+  renderZoneChips();
+  window.setCamera(camPreset === 'eye' ? 'iso' : camPreset);
+};
+window.setCamera = function (p) {
+  camPreset = p;
+  const bb = viewBBox();
+  const cx = (bb.minX + bb.maxX) / 2, cz = (bb.minZ + bb.maxZ) / 2;
+  const span = Math.max(bb.maxX - bb.minX, bb.maxZ - bb.minZ);
+  if (p === 'top') {
+    controls.target.set(cx, 0, cz);
+    camera.position.set(cx, span * 1.35 + 320, cz + 0.01);
+  } else if (p === 'iso') {
+    controls.target.set(cx, 40, cz);
+    camera.position.set(cx + span * 0.5, span * 0.85 + 200, cz + span * 0.72);
+  } else {
+    // 室内視点: 部屋中央・目線高さ140cm、窓の方向を向く
+    let tx = cx, tz = cz - 150;
+    const dk = currentRoom !== 'all' ? dataKeyOf(currentRoom) : null;
+    if (dk) {
+      const win = R.openings.find(function (o) { return o.room === dk && o.type === 'window'; });
+      if (win) { tx = (win.wallFrom[0] + win.wallTo[0]) / 2; tz = (win.wallFrom[1] + win.wallTo[1]) / 2; }
+    }
+    camera.position.set(cx, 140, cz);
+    controls.target.set(tx, 130, tz);
+  }
+  controls.update();
+};
+
+function onResize() {
+  const vp = document.getElementById('viewport');
+  if (!vp.clientWidth || !renderer) return;
+  camera.aspect = vp.clientWidth / vp.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(vp.clientWidth, vp.clientHeight);
+}
+
+function initThree() {
+  const vp = document.getElementById('viewport');
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(isDark ? 0x11161f : 0xffe9ee);
+  camera = new THREE.PerspectiveCamera(55, Math.max(vp.clientWidth, 1) / Math.max(vp.clientHeight, 1), 5, 30000);
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(vp.clientWidth, vp.clientHeight);
+  vp.appendChild(renderer.domElement);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.12;
+  controls.maxPolarAngle = Math.PI * 0.55;
+  controls.minDistance = 40;
+  controls.maxDistance = 6000;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.9);
+  dl.position.set(500, 900, 200);
+  scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0xffffff, 0.35);
+  dl2.position.set(-400, 600, -500);
+  scene.add(dl2);
+  buildStatic();
+  furnGroup = new THREE.Group();
+  scene.add(furnGroup);
+  bindPointer();
+  window.addEventListener('resize', onResize);
+  animate();
+  if (DEBUG) {
+    // ★v1.9 ?debug=1 専用の検証フック (本番モードでは公開しない)
+    window.__noza = {
+      shot: function (w) {
+        updateWallGhost();
+        renderer.render(scene, camera);
+        const src = renderer.domElement;
+        const scale = (w || 640) / src.width;
+        const c = document.createElement('canvas');
+        c.width = Math.round(src.width * scale); c.height = Math.round(src.height * scale);
+        c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+        return c.toDataURL('image/jpeg', 0.7);
+      },
+      state: function () {
+        return { items: JSON.parse(JSON.stringify(workItems)), zone: currentZone, room: currentRoom,
+                 ghosted: wallGhostMeshes.filter(function (m) { return m.material.opacity === 0.12; }).length,
+                 walls: wallGhostMeshes.length };
+      },
+      cam: function (px, py, pz, tx, ty, tz) {
+        // ★v2.1 検証用: カメラ位置・注視点を直接指定 (?debug=1 のみ公開)
+        camera.position.set(px, py, pz);
+        controls.target.set(tx, ty, tz);
+        controls.update();
+        return camera.position.toArray();
+      },
+      move: function (id, x, z) {
+        const it = workItems[id]; if (!it) return 'no item';
+        const d_ = beginDrag(id, it, { x: it.x, z: it.z });
+        it.x = x; it.z = z; clampItem(it);
+        resolveDragPos(d_, it);
+        const m = furnMeshes[id]; if (m) syncItemMesh(m, it);
+        return { x: it.x, z: it.z, y: it.y };
+      },
+      doors: function () {
+        // ★v2.2 検証用: ドア一覧 (id / ラベル / 開閉状態)
+        return Object.keys(doors).map(function (k) {
+          return { id: k, label: doors[k].label, open: doors[k].open, parts: doors[k].parts.length };
+        });
+      },
+      door: function (id) { toggleDoor(id); return doors[id] && doors[id].open; },
+      drawers: function () {
+        // ★v2.3 検証用: 引き出し一覧 (id / ラベル / 開閉状態 / 残り幅cm)
+        return Object.keys(drawers).map(function (k) {
+          return { id: k, label: drawers[k].label, open: drawers[k].open, remain: drawers[k].remain };
+        });
+      },
+      drawer: function (id) { toggleDrawer(id); return { open: drawers[id] && drawers[id].open, remain: drawers[id] && drawers[id].remain }; },
+      add: function (base) {
+        // ★v2.2 検証用: 現在の部屋に item を直接投入 (findFreeSpot を通さない = 重なり検証用)
+        const id = genItemId();
+        const it = Object.assign({ name: 'test', w: 60, d: 60, h: 60, x: 300, z: 400, y: 0, rotY: 0,
+                                   color: '#b9a488' }, base);
+        workItems[id] = it;
+        itemMeshBuild(id, it);
+        return id;
+      },
+      cat: function () {
+        return Object.keys(catalogData).map(function (id) { return { id: id, name: catalogData[id].name }; });
+      },
+      click: function (fx, fy) {
+        // ★v2.2 検証用: ビューポート相対座標 (0..1) への合成クリック (handleClick 直呼び)
+        const r = renderer.domElement.getBoundingClientRect();
+        const ev = { clientX: r.left + r.width * fx, clientY: r.top + r.height * fy };
+        const info = pickInfo(ev);
+        handleClick(ev);
+        return info ? { kind: info.kind, doorId: info.doorId || null,
+                        info: typeof info.info === 'string' ? info.info.slice(0, 40) : 'obj' } : null;
+      }
+    };
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (controls) controls.update();
+  updateWallGhost();   // ★v1.9 手前壁の自動半透明化 (全体ビュー・部屋ビュー共通)
+  updateDimLabel();
+  updateDrawerLabels();   // ★v2.3[9] 開いた引き出しの「残り幅」ラベル
+  if (renderer) renderer.render(scene, camera);
+}
+
+// ═══════════════ 家具メッシュ (★v1.8 type別パラメトリック簡易モデル) ═══════════════
+// 家具は THREE.Group。ローカル座標: x∈[-w/2,w/2], y∈[0,h] (床基準), z∈[-d/2,d/2] (背面=-z)。
+// w/d/h/色/type が変わったら子パーツを組み直し、位置・回転は Group に適用する。
+function itemTypeOf(it) {
+  if (it.type) return it.type;
+  const c = it.catalogId ? catalogData[it.catalogId] : null;
+  return (c && c.type) || null;
+}
+// ★v2.3[9] 家具アイテム (KM504 / エトナ60OP) の引き出し・スライド棚 開閉シミュレーション部品を組み込む。
+//          クリックプレート (前面) + 突き出しボックス (visible=false) を作り drawers レジストリに登録する。
+//          id は itemId ベースで安定させ、寸法・色変更による組み直しでも開閉状態を引き継ぐ。
+function itemDrawerSet(g, it, defs, ctx) {
+  const iid = g.userData.itemId;
+  if (!iid) return;
+  const w = ctx.w, d = ctx.d, zF = d / 2;
+  defs.forEach(function (def) {
+    const bw = def.bw || (w - 8);                 // 引き出し幅 (ローカルx)
+    const x0 = def.x0 || 0;                       // 中心x (KM504スライド棚=右寄り)
+    const yMid = def.y0 + def.rh / 2;
+    const mkP = function (sx, sy, sz, px, py, pz, col) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(sx, 0.5), Math.max(sy, 0.5), Math.max(sz, 0.5)),
+        new THREE.MeshLambertMaterial({ color: col }));
+      m.position.set(px, py, pz);
+      g.add(m);
+      return m;
+    };
+    // クリックプレート (前面フラッシュ・本体色)
+    const plate = mkP(bw, Math.max(def.rh, 6), 1.0, x0, yMid, zF + 0.35, ctx.base);
+    const boxes = [];
+    if (def.kind === 'drawer') {
+      boxes.push(mkP(bw - 3, def.rh - 4, def.depth, x0, yMid, zF + def.depth / 2, ctx.dark.clone().lerp(ctx.base, 0.4)));
+      boxes.push(mkP(bw, def.rh - 1.5, 1.6, x0, yMid, zF + def.depth + 0.6, ctx.base));            // 前板
+      boxes.push(mkP(bw * 0.3, 1.8, 1.3, x0, def.y0 + def.rh - 3.2, zF + def.depth + 1.4, ctx.silver)); // ハンドル
+    } else {
+      boxes.push(mkP(bw, 2.2, def.depth, x0, yMid, zF + def.depth / 2, ctx.lite));                  // スライド板
+      boxes.push(mkP(bw, 1.4, 1.0, x0, yMid, zF + def.depth + 0.4, ctx.silver));                    // 前縁
+    }
+    boxes.forEach(function (m) { m.visible = false; m.userData.drawerBox = true; });
+    plate.userData.drawerId = boxes[0].userData.drawerId = boxes[1].userData.drawerId = regDrawer({
+      id: 'i_' + iid + '_' + def.key, label: def.label, boxes: boxes, depth: def.depth, originOff: 0.6,
+      rayFn: function () {
+        g.updateMatrixWorld();
+        const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(g.quaternion).normalize();
+        return {
+          origins: [g.localToWorld(new THREE.Vector3(x0, yMid, zF + 0.6)),
+                    g.localToWorld(new THREE.Vector3(x0 - bw * 0.35, yMid, zF + 0.6)),
+                    g.localToWorld(new THREE.Vector3(x0 + bw * 0.35, yMid, zF + 0.6))],
+          dir: dir, exclude: g,
+          labelPos: g.localToWorld(new THREE.Vector3(x0, def.y0 + def.rh + 12, zF + def.depth))
+        };
+      }
+    });
+  });
+}
+
+function buildItemParts(g, it) {
+  const w = Math.max(Number(it.w) || 10, 2), d = Math.max(Number(it.d) || 10, 2), h = Math.max(Number(it.h) || 10, 2);
+  const base = new THREE.Color(it.color || '#b9a488');
+  const dark = base.clone().multiplyScalar(0.55);
+  const lite = base.clone().lerp(new THREE.Color(0xffffff), 0.5);
+  const P = function (sx, sy, sz, px, py, pz, col, opts) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(sx, 0.5), Math.max(sy, 0.5), Math.max(sz, 0.5)),
+      new THREE.MeshLambertMaterial(Object.assign({ color: col }, opts || {})));
+    m.position.set(px, py, pz);
+    g.add(m);
+    return m;
+  };
+  const CYL = function (r, sy, px, py, pz, col) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(r, 0.4), Math.max(r, 0.4), Math.max(sy, 0.5), 12),
+      new THREE.MeshLambertMaterial({ color: col }));
+    m.position.set(px, py, pz);
+    g.add(m);
+    return m;
+  };
+  const legs4 = function (t, lh, inset, col) {
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) {
+      P(t, lh, t, q[0] * (w / 2 - inset), lh / 2, q[1] * (d / 2 - inset), col);
+    });
+  };
+  const type = itemTypeOf(it);
+  const nm = (it.name || '') + ' ' + (it.memo || '');
+
+  if (type === 'bed') {
+    // ★v2.0 フレームのみ (内蔵マットレス削除。マットレスは別商品として上に載せる運用)
+    //        床面高 floorH (Aerus: 19.5⇔32 切替、既定32) にすのこ天面。ヘッドボード + 宮棚は従来通り
+    const hbT = 11;
+    const fh = Math.min(Math.max(Number(it.floorH) || 32, 10), Math.max(h - 10, 10));
+    P(w, h, hbT, 0, h / 2, -d / 2 + hbT / 2, base);                       // ヘッドボード
+    if (/Aerus|宮棚/.test(nm)) {
+      P(w, 3, 8, 0, h - 1.5, -d / 2 + hbT + 4, base);                     // 宮棚 天板
+      P(w - 6, 4, 6, 0, h - 8, -d / 2 + hbT + 3, dark);                   // 棚内段差
+    }
+    P(3.5, fh, d - hbT, -(w / 2 - 1.75), fh / 2, hbT / 2, dark);          // サイドフレーム 左
+    P(3.5, fh, d - hbT, (w / 2 - 1.75), fh / 2, hbT / 2, dark);           // サイドフレーム 右
+    P(w - 7, fh, 3.5, 0, fh / 2, d / 2 - 1.75, dark);                     // フットフレーム
+    const slatN = 7, slatSpan = (d - hbT - 5) / slatN;
+    for (let si = 0; si < slatN; si++) {                                  // すのこ天面 (床面高 fh)
+      P(w - 8, 2, Math.max(slatSpan - 4, 3), 0, fh - 1, -d / 2 + hbT + 2 + slatSpan * (si + 0.5), lite);
+    }
+    // ★v2.2[7] すのこ+マットレスのセット化: Aerus は item.mattress (既定ON) で対応マットレスを内蔵描画。
+    //          D=GOKUMIN B01D 140×195×25 / S=ニトリLH3 97×198×38 / SS=LH3 SS 85×198×38
+    //          (SS はフレーム80より幅広 → はみ出して描画される = 現実のはみ出し警告)
+    if (/Aerus/.test(nm) && it.mattress !== false) {
+      let mw, md, mh, mCol;
+      if (/セミシングル/.test(nm)) { mw = 85; md = 198; mh = 38; mCol = new THREE.Color(0x3e4147); }
+      else if (/ダブル/.test(nm)) { mw = 140; md = 195; mh = 25; mCol = new THREE.Color(0x4a4a52); }
+      else { mw = 97; md = 198; mh = 38; mCol = new THREE.Color(0x3e4147); }   // シングル
+      const mz = -d / 2 + hbT + md / 2;                                   // 頭側=ヘッドボード直後から敷く
+      const mDk = mCol.clone().multiplyScalar(0.78);
+      const mLt = mCol.clone().lerp(new THREE.Color(0xffffff), 0.45);
+      const mB = Math.max(mh * 0.45, 2);
+      P(mw, mB, md, 0, fh + mB / 2, mz, mDk.clone().lerp(mCol, 0.55));    // 下層 (側面ボーダー)
+      P(mw - 2.5, mh - mB, md - 2.5, 0, fh + mB + (mh - mB) / 2, mz, mCol); // 上層 (角丸風)
+      P(mw - 8, 0.8, 2, 0, fh + mh - 0.1, mz - md * 0.17, mLt);           // キルト風ライン1
+      P(mw - 8, 0.8, 2, 0, fh + mh - 0.1, mz + md * 0.17, mLt);           // キルト風ライン2
+    }
+  } else if (type === 'mattress') {
+    // ★v2.0 マットレス: 角丸風の厚板 (下層ボーダー + 上層を少し内側に = 面取り風) + 上面キルト風ライン
+    const baseH = Math.max(h * 0.45, 2);
+    P(w, baseH, d, 0, baseH / 2, 0, dark.clone().lerp(base, 0.55));       // 下層 (側面ボーダー)
+    P(w - 2.5, h - baseH, d - 2.5, 0, baseH + (h - baseH) / 2, 0, base);  // 上層 (少し内側=角丸風)
+    P(w - 8, 0.8, 2, 0, h - 0.1, -d * 0.17, lite);                        // キルト風ライン1
+    P(w - 8, 0.8, 2, 0, h - 0.1, d * 0.17, lite);                        // キルト風ライン2
+  } else if (type === 'desk') {
+    P(w, 3.5, d, 0, h - 1.75, 0, base);                                   // 天板
+    legs4(4.5, h - 3.5, 4, dark);                                          // 4脚 (下は空洞)
+  } else if (type === 'chair' && /オフィス|サリダ|C300|COFO|ゲーミング/.test(nm)) {
+    // オフィスチェア: 5本脚 + ガスシリンダー風 + 座面 + 背もたれ
+    const seatH = Math.min(46, h * 0.42);
+    for (let i = 0; i < 5; i++) {
+      const a = i * Math.PI * 2 / 5;
+      const sp = P(4, 2.5, Math.min(w, d) * 0.44, Math.sin(a) * Math.min(w, d) * 0.22, 1.6, Math.cos(a) * Math.min(w, d) * 0.22, 0x2a2a2e);
+      sp.rotation.y = a;
+    }
+    CYL(2.6, seatH - 6, 0, (seatH - 6) / 2 + 3, 0, 0x3a3a40);             // シリンダー
+    P(w * 0.82, 6, d * 0.72, 0, seatH - 3, d * 0.04, base);               // 座面
+    P(w * 0.72, h - seatH, 6, 0, seatH + (h - seatH) / 2, -d / 2 + 8, dark); // 背もたれ (メッシュ風)
+  } else if (type === 'chair' && /C-60S/.test(nm)) {
+    // ★v2.1 ニトリ ダイニングチェア C-60S 詳細モデル: 回転式 = 4本脚 + 回転盤 + 回転座、
+    //        緩くカーブした笠木背もたれ (3分割で弧を近似)、座面クッション。
+    //        ミドルブラウン木部×ブラウン座面。肘付き (肘高さ約61cm) は肘掛け追加
+    const wood = base, seatCol = new THREE.Color(0x6e5340);
+    const seatH = Math.min(46.5, h * 0.5);
+    const legH = seatH - 9;
+    legs4(3.4, legH, 5, wood);                                            // 4本脚
+    P(w * 0.5, 3, d * 0.42, 0, legH + 1.5, 0, wood);                      // 脚上部フレーム (回転機構台)
+    CYL(7.5, 2.6, 0, legH + 4.3, 0, 0x4a4b4e);                            // 回転盤
+    P(w * 0.94, 4.5, d * 0.66, 0, seatH - 4.5, d * 0.06, seatCol.clone().multiplyScalar(0.85)); // 座面ベース
+    P(w * 0.88, 4.5, d * 0.6, 0, seatH - 1, d * 0.06, seatCol);           // 座面クッション (角丸風)
+    const zB = -d / 2 + 9;
+    P(3, h - seatH - 12, 3, -w * 0.27, seatH + (h - seatH - 12) / 2, zB, wood);   // 背支柱 左
+    P(3, h - seatH - 12, 3, w * 0.27, seatH + (h - seatH - 12) / 2, zB, wood);    // 背支柱 右
+    P(w * 0.46, 13, 3.6, 0, h - 6.5, zB, wood);                           // 笠木 中央
+    const kL = P(w * 0.26, 13, 3.6, -w * 0.36, h - 6.5, zB + 1.8, wood);  // 笠木 左 (前へ緩くカーブ)
+    kL.rotation.y = 0.3;
+    const kR = P(w * 0.26, 13, 3.6, w * 0.36, h - 6.5, zB + 1.8, wood);   // 笠木 右
+    kR.rotation.y = -0.3;
+    if (/肘付/.test(nm)) {                                                 // 肘掛け (肘高さ約61cm)
+      const armH = Math.min(61, h * 0.66), aX = w / 2 - 2.2;
+      P(3, armH - seatH + 2, 3, -aX, seatH + (armH - seatH) / 2 - 1, d * 0.12, wood);
+      P(3, armH - seatH + 2, 3, aX, seatH + (armH - seatH) / 2 - 1, d * 0.12, wood);
+      P(3.4, 3, d * 0.44, -aX, armH - 1.5, -d * 0.06, wood);
+      P(3.4, 3, d * 0.44, aX, armH - 1.5, -d * 0.06, wood);
+    }
+  } else if (type === 'chair') {
+    // ダイニングチェア: 座面 + 背もたれ + 4脚
+    const seatH = Math.min(47, h * 0.5);
+    P(w, 4.5, d * 0.86, 0, seatH - 2.25, d * 0.07, base);                 // 座面
+    legs4(3.5, seatH - 4.5, 3, dark);
+    P(w * 0.9, h - seatH, 4.5, 0, seatH + (h - seatH) / 2, -d / 2 + 4, base); // 背もたれ
+  } else if (type === 'sofa') {
+    const armW = Math.min(14, w * 0.13), baseH = Math.min(h * 0.48, 42);
+    P(w - armW * 2, baseH, d, 0, baseH / 2, 0, base);                     // 座面ベース
+    P(w - armW * 2, 7, d - 12, 0, baseH + 3.5, 3, lite);                  // 座クッション
+    P(w - armW * 2, h - baseH, 15, 0, baseH + (h - baseH) / 2, -d / 2 + 7.5, base); // 背
+    P(armW, h * 0.78, d, -(w / 2 - armW / 2), h * 0.39, 0, dark);         // 肘掛け 左
+    P(armW, h * 0.78, d, (w / 2 - armW / 2), h * 0.39, 0, dark);          // 肘掛け 右
+  } else if (type === 'table') {
+    P(w, 3.5, d, 0, h - 1.75, 0, base);                                   // 天板 (ローテーブルも同型)
+    legs4(Math.min(6, h * 0.18), h - 3.5, 4, dark);
+  } else if (type === 'tv') {
+    const standH = Math.min(h * 0.22, 14);
+    P(w * 0.55, 2.5, d, 0, 1.25, 0, 0x232327);                            // スタンドベース
+    P(9, standH, 5, 0, standH / 2 + 2, 0, 0x232327);                      // ネック
+    P(w, h - standH, 5, 0, standH + (h - standH) / 2, 0, 0x121216);       // 薄型パネル
+    P(w - 5, h - standH - 5, 1.2, 0, standH + (h - standH) / 2, 2.6, 0x2c3542); // 画面
+  } else if (type === 'fridge' && /HZC/.test(nm)) {
+    // ★v2.1 日立 R-HZC54Y XH 詳細モデル (公式: フレンチ6ドア・チャコールグレー・540L)
+    //        上=冷蔵室フレンチ観音2枚 (縦長ハンドル) / 中段=製氷(左小)+冷凍上段(右) 引き出し2 /
+    //        下段=冷凍下段+野菜室 引き出し2。フラット前面 + 分割線 + 手掛けグルーブ表現
+    const zF = d / 2;
+    const line = dark.clone().multiplyScalar(0.85);
+    const y1 = h * 0.215, y2 = h * 0.385, y3 = h * 0.505;   // 野菜室/冷凍下段/中段 の各上端
+    P(w, h, d, 0, h / 2, 0, base);                                        // 本体 (フラット面)
+    P(w - 2, h * 0.03, 1, 0, h * 0.015, zF + 0.2, 0x26282b);              // 下部キックプレート
+    [y1, y2, y3].forEach(function (yy) {                                  // 水平分割線 x3
+      P(w - 1.5, 1.1, 0.8, 0, yy, zF + 0.35, line);
+    });
+    P(1.1, h - y3 - 1.5, 0.8, 0, y3 + (h - y3) / 2, zF + 0.35, line);     // フレンチ観音 中央縦線
+    P(1.1, y3 - y2 - 1.5, 0.8, -w * 0.1, y2 + (y3 - y2) / 2, zF + 0.35, line);  // 中段 製氷|冷凍上段 縦線
+    const hh = (h - y3) * 0.72;                                           // 縦長ハンドル (観音の中央寄り)
+    P(2.2, hh, 1.5, -4, y3 + (h - y3) * 0.5, zF + 0.9, 0x33353a);
+    P(2.2, hh, 1.5, 4, y3 + (h - y3) * 0.5, zF + 0.9, 0x33353a);
+    P(w * 0.32, 1.6, 1, -w * 0.29, y3 - 2.8, zF + 0.5, 0x2b2d30);         // 手掛けグルーブ: 製氷
+    P(w * 0.5, 1.6, 1, w * 0.2, y3 - 2.8, zF + 0.5, 0x2b2d30);            // 冷凍上段
+    P(w - 10, 1.6, 1, 0, y2 - 2.8, zF + 0.5, 0x2b2d30);                   // 冷凍下段
+    P(w - 10, 1.6, 1, 0, y1 - 2.8, zF + 0.5, 0x2b2d30);                   // 野菜室
+  } else if (type === 'fridge') {
+    P(w, h, d, 0, h / 2, 0, base);                                        // 本体
+    const split = h * 0.55;
+    P(w - 3, 1.6, 1.2, 0, split, d / 2 + 0.3, dark);                      // ドア分割線 (上下)
+    P(1.6, h - split - 4, 1.2, 0, split + (h - split - 4) / 2 + 2, d / 2 + 0.3, dark); // 上段フレンチ縦線
+    P(2.5, 26, 2, -w * 0.28, split + 16, d / 2 + 1, 0x33353a);            // 取っ手
+    P(2.5, 26, 2, w * 0.28, split + 16, d / 2 + 1, 0x33353a);
+  } else if (type === 'shelf' && /KM504/.test(nm)) {
+    // ★v2.1 ニトリ キッチンボード KM504 100R 詳細モデル: 上台=スモークガラス引き戸 (半透明ダーク) /
+    //        中央=家電用オープンスペース (右寄り=100R、スライド棚) / 下台=引き出し3段+スライドテーブル。ライトグレー
+    const zF = d / 2;
+    const silver = new THREE.Color(0x9b9ea1);
+    const cT = h * 0.43;                                                  // 下台カウンター天面 (~89cm)
+    const oT = h * 0.705;                                                 // オープン部上端 (~146cm)
+    P(w, cT, d, 0, cT / 2, 0, base);                                      // 下台 箱
+    P(w, 2, d + 1, 0, cT + 1, 0.5, lite);                                 // カウンター天板
+    const dArea0 = 6, dArea1 = cT - 8;
+    P(w - 4, dArea0, d - 3, 0, dArea0 / 2, -1, dark);                     // 台輪
+    for (let ki = 1; ki <= 2; ki++) {                                     // 引き出し3段 分割線
+      P(w - 2, 1, 0.8, 0, dArea0 + (dArea1 - dArea0) * ki / 3, zF + 0.3, dark);
+    }
+    for (let ki = 0; ki < 3; ki++) {                                      // 引き出し バーハンドル
+      P(w * 0.3, 1.8, 1.4, 0, dArea0 + (dArea1 - dArea0) * (ki + 1) / 3 - 3.2, zF + 0.8, silver);
+    }
+    P(w - 2, 1.2, 0.9, 0, dArea1 + 3.5, zF + 0.3, dark);                  // スライドテーブル スリット
+    const oB = cT + 2, oH2 = oT - oB;
+    P(w, 2.5, d, 0, oT + 1.25, 0, base);                                  // オープン部 天板 (上台底)
+    const lw = w * 0.36;
+    P(lw, oH2, d, -w / 2 + lw / 2, oB + oH2 / 2, 0, base);                // 左 縦扉キャビネット
+    P(1.4, oH2 * 0.5, 1.2, -w / 2 + lw - 2.5, oB + oH2 * 0.55, zF + 0.6, silver);  // 縦バー取っ手
+    const ow = w - lw;                                                    // 右 = 家電用オープン (100R)
+    P(ow, oH2, 2, w / 2 - ow / 2, oB + oH2 / 2, -d / 2 + 1, dark.clone().multiplyScalar(0.75));  // 背板 (暗)
+    P(ow - 3, 2, d - 6, w / 2 - ow / 2, oB + 1, -0.5, base);              // 底板
+    P(ow - 6, 1.8, d - 10, w / 2 - ow / 2, oB + oH2 * 0.48, 2, lite);     // スライド棚 (少し前)
+    const uH = h - oT - 2;                                                // 上台 スモークガラス引き戸
+    P(w, uH + 2, d - 2, 0, oT + (uH + 2) / 2, -1, base);                  // 上台 箱 (前面を少し奥へ)
+    const gm = { transparent: true, opacity: 0.55 };
+    P(w / 2 - 1, uH - 4, 0.8, -w / 4 + 0.5, oT + uH / 2 + 1, zF - 0.4, 0x3a3d41, gm);  // ガラス左 (奥レール)
+    P(w / 2 - 1, uH - 4, 0.8, w / 4 - 0.5, oT + uH / 2 + 1, zF + 0.5, 0x34373b, gm);   // ガラス右 (手前レール)
+    P(1.2, uH - 4, 0.9, 0, oT + uH / 2 + 1, zF + 1, silver);              // 引き戸 縦框
+    // ★v2.3[9] KM504 開閉シミュレーション: 引き出し3段 (奥行≈45) + スライドテーブル (≈45) + スライド棚 (≈30)
+    itemDrawerSet(g, it, [
+      { key: 'dr0', label: 'KM504 引き出し(下段)', y0: dArea0, rh: (dArea1 - dArea0) / 3, depth: 45, kind: 'drawer' },
+      { key: 'dr1', label: 'KM504 引き出し(中段)', y0: dArea0 + (dArea1 - dArea0) / 3, rh: (dArea1 - dArea0) / 3, depth: 45, kind: 'drawer' },
+      { key: 'dr2', label: 'KM504 引き出し(上段)', y0: dArea0 + (dArea1 - dArea0) * 2 / 3, rh: (dArea1 - dArea0) / 3, depth: 45, kind: 'drawer' },
+      { key: 'tbl', label: 'KM504 スライドテーブル', y0: dArea1 + 2, rh: 3.5, depth: 45, kind: 'table' },
+      { key: 'shf', label: 'KM504 スライド棚(家電用)', y0: oB + oH2 * 0.48 - 1, rh: 3.5, depth: 30, kind: 'table',
+        x0: w / 2 - ow / 2, bw: ow - 8 }
+    ], { w: w, d: d, base: base, dark: dark, lite: lite, silver: silver });
+  } else if (type === 'shelf' && /エトナ/.test(nm)) {
+    // ★v2.1 レンジボード エトナ 60OP 詳細モデル: 上台=板扉 / 中段=家電オープン (床から85cm、背板あり) /
+    //        下台=オープン+スライド棚。ホワイト×シルバー取っ手
+    const zF = d / 2;
+    const silver = new THREE.Color(0xa8abae);
+    const midB = Math.min(85, h * 0.47);                                  // 中段オープン底 (床から85cm)
+    const midT = Math.min(midB + 35, h - 45);                             // 中段オープン天
+    P(2.5, h, d, -(w / 2 - 1.25), h / 2, 0, base);                        // 側板 左
+    P(2.5, h, d, (w / 2 - 1.25), h / 2, 0, base);                         // 側板 右
+    P(w, h, 1.5, 0, h / 2, -d / 2 + 0.75, base);                          // 背板 (全面 = 中段も背板あり)
+    P(w - 5, 8, d - 4, 0, 4, -1, base);                                   // 台輪
+    P(w, 2.5, d, 0, midB - 1.25, 0, base);                                // 下台 天板 (家電置き面 85cm)
+    P(w - 7, 2, d - 9, 0, midB * 0.47, 2.5, base);                        // 下台オープン スライド棚 (少し前)
+    P(w - 7, 1.2, 0.8, 0, midB * 0.47 - 1.2, zF - 1.5, silver);           // スライド棚 前縁シルバー
+    // ★v2.3[9] エトナ60OP 下台スライド棚の開閉シミュレーション (引き出し奥行≈30)
+    itemDrawerSet(g, it, [
+      { key: 'shf', label: 'エトナ60OP スライド棚', y0: midB * 0.47 - 1.5, rh: 3.5, depth: 30, kind: 'table' }
+    ], { w: w, d: d, base: base, dark: dark, lite: lite, silver: silver });
+    P(w, 2.5, d, 0, midT + 1.25, 0, base);                                // 上台 底板
+    const uB = midT + 2.5, uH = h - uB;
+    P(w, uH, d - 1, 0, uB + uH / 2, -0.5, base);                          // 上台 箱
+    P(w / 2 - 1.6, uH - 2, 1.2, -w / 4 + 0.4, uB + uH / 2, zF + 0.2, lite);  // 板扉 左
+    P(w / 2 - 1.6, uH - 2, 1.2, w / 4 - 0.4, uB + uH / 2, zF + 0.2, lite);   // 板扉 右
+    P(1.2, 9, 1.3, -2.6, uB + uH * 0.3, zF + 1, silver);                  // 取っ手 左
+    P(1.2, 9, 1.3, 2.6, uB + uH * 0.3, zF + 1, silver);                   // 取っ手 右
+  } else if (type === 'shelf') {
+    // レンジボード/キッチンボード: 本体 + 中段オープン部のへこみ
+    P(w, h, d, 0, h / 2, 0, base);
+    const openB = Math.min(85, h * 0.42), openH = Math.min(38, h * 0.24);
+    P(w - 8, openH, 3, 0, openB + openH / 2, d / 2 - 0.9, dark.clone().multiplyScalar(0.8)); // オープン部 (前面へこみ表現)
+    P(w - 10, 1.5, 1, 0, openB + openH + 6, d / 2 + 0.2, dark);           // 扉分割線
+  } else if (type === 'cattower') {
+    P(w, 4, d, 0, 2, 0, base);                                            // 土台
+    CYL(4.5, h - 8, -w * 0.18, (h - 8) / 2 + 4, -d * 0.1, dark);          // 支柱1
+    CYL(4.5, h * 0.62, w * 0.2, h * 0.31 + 4, d * 0.12, dark);            // 支柱2
+    P(w * 0.62, 3.5, d * 0.55, w * 0.12, h * 0.62, d * 0.08, base);       // 段板 中
+    P(w * 0.8, 4.5, d * 0.6, -w * 0.05, h - 2.5, -d * 0.05, lite);        // トップベッド
+    CYL(Math.min(w, d) * 0.26, 2.5, w * 0.1, h * 0.34, d * 0.1, lite);    // ハンモック風
+  } else if (type === 'catcage') {
+    // ★v1.9 タンスのゲン 52800019 準拠: キャスター + 最下部引き出し (トイレ収納) + 白フレーム3段 + 前面扉
+    const casterH = 5, drawerH = Math.min(20, h * 0.14);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) {
+      CYL(2.2, casterH, q[0] * (w / 2 - 7), casterH / 2, q[1] * (d / 2 - 7), 0x3a3a3e);  // キャスター
+    });
+    P(w, drawerH, d, 0, casterH + drawerH / 2, 0, base);                  // ベース (トイレ一体部)
+    P(w * 0.86, drawerH - 5, 1.6, 0, casterH + drawerH / 2, d / 2 + 0.4, lite);  // 引き出し前板
+    P(w * 0.22, 2.2, 1.4, 0, casterH + drawerH - 4, d / 2 + 1.2, 0x8a8a8e);      // 引き出し取っ手
+    const cageB = casterH + drawerH, cageH = Math.max(h - cageB, 10);
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (q) {
+      P(2.8, cageH, 2.8, q[0] * (w / 2 - 1.4), cageB + cageH / 2, q[1] * (d / 2 - 1.4), base);  // 白コーナーフレーム
+    });
+    P(w, 2.8, d, 0, h - 1.4, 0, base);                                    // 天面フレーム
+    P(w, 2.2, d, 0, cageB + 1.1, 0, base);                                // ケージ底フレーム
+    // ★v2.2[5] 金網: 半透明プレーン → 細バーのグリッド (縦6-8本 + 横4-5本/面) で「網網」表現
+    const barW = 0.7, gH = cageH - 5, gCy = cageB + cageH / 2;
+    const wireFace = function (isX, cross, span, nV) {
+      for (let bi = 0; bi < nV; bi++) {                                   // 縦バー
+        const u = -span / 2 + span * (bi + 0.5) / nV;
+        if (isX) P(barW, gH, barW, u, gCy, cross, base);
+        else P(barW, gH, barW, cross, gCy, u, base);
+      }
+      for (let bi = 0; bi < 4; bi++) {                                    // 横バー
+        const yy = gCy - gH / 2 + gH * (bi + 1) / 5;
+        if (isX) P(span, barW, barW, 0, yy, cross, base);
+        else P(barW, barW, span, cross, yy, 0, base);
+      }
+    };
+    wireFace(true, d / 2 - 0.5, w - 4, 7);                                // 前
+    wireFace(true, -d / 2 + 0.5, w - 4, 7);                               // 後
+    wireFace(false, -w / 2 + 0.5, d - 4, 6);                              // 左
+    wireFace(false, w / 2 - 0.5, d - 4, 6);                               // 右
+    // 3段ステップ棚板 (2枚で3層)
+    P(w - 6, 2.4, d * 0.6, -w * 0.1, cageB + cageH * 0.34, -d * 0.12, lite);
+    P(w - 6, 2.4, d * 0.6, w * 0.1, cageB + cageH * 0.66, d * 0.05, lite);
+    // 前面扉: 白枠 + 網グリッド + ラッチ (前面下段に大扉)
+    const doW = w * 0.5, doH = cageH * 0.52, doCy = cageB + doH / 2 + 3, doZ = d / 2 + 0.6;
+    P(doW, 2, 1.4, 0, doCy + doH / 2, doZ, base); P(doW, 2, 1.4, 0, doCy - doH / 2, doZ, base);
+    P(2, doH, 1.4, -doW / 2, doCy, doZ, base); P(2, doH, 1.4, doW / 2, doCy, doZ, base);
+    for (let bi = 0; bi < 3; bi++) {                                      // ★v2.2[5] 扉の網 (縦3+横2)
+      P(barW, doH - 3, barW, -doW / 2 + doW * (bi + 1) / 4, doCy, doZ, base);
+    }
+    for (let bi = 0; bi < 2; bi++) {
+      P(doW - 3, barW, barW, 0, doCy - doH / 2 + doH * (bi + 1) / 3, doZ, base);
+    }
+    P(1.8, 6, 1.8, doW / 2 - 3, doCy, doZ + 0.4, 0x6a6a6e);               // ラッチ
+  } else if (type === 'monitor') {
+    // ★v1.9 モニター: ベース台 + ネック + 薄型パネル (34曲面も平板でよい)
+    const standH = Math.min(h * 0.32, 14), panH = Math.max(h - standH, 6), panT = Math.min(4.5, d * 0.3);
+    P(w * 0.45, 2, d * 0.85, 0, 1, 0, 0x232327);                          // ベース台
+    P(5, standH, Math.min(6, d * 0.4), 0, standH / 2 + 2, d * 0.12, 0x232327);  // ネック
+    P(w, panH, panT, 0, standH + panH / 2, -d / 2 + panT / 2 + 1, base);  // パネル
+    P(w - 3, panH - 3, 1, 0, standH + panH / 2, -d / 2 + panT + 1.6, 0x2c3542);  // 画面
+  } else if (type === 'monitorarm') {
+    // ★v1.9 モニターアーム (エルゴトロンLX風): クランプ台座 + ポール + アーム2節 + VESAプレート
+    const poleH = Math.max(h * 0.6, 8);
+    P(Math.min(w, 10), 2.5, Math.min(d, 10), 0, 1.25, -d * 0.15, 0x2a2a2e);          // クランプ台座
+    P(Math.min(w, 10) * 0.5, 6, 3, 0, -2, -d / 2 + 1.5, 0x2a2a2e);                   // クランプ爪 (天板噛み)
+    CYL(1.8, poleH, 0, poleH / 2 + 2, -d * 0.15, base);                              // ポール
+    const a1 = P(3.2, 2.6, d * 0.5, 0, poleH + 1.5, -d * 0.15 + d * 0.25, base);     // アーム節1
+    P(3.2, 2.6, d * 0.45, 0, poleH - 1.5, d * 0.28, base);                           // アーム節2
+    P(Math.min(w, 12), Math.min(12, poleH), 1.6, 0, poleH - 2, d / 2 - 0.8, 0x3a3a3e); // VESAプレート
+  } else {
+    // その他/自由サイズ: 従来の単純ボックス + エッジ
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: base }));
+    m.position.set(0, h / 2, 0);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 }));
+    m.add(edges);
+    g.add(m);
+  }
+}
+function itemMeshBuild(id, it) {
+  const g = new THREE.Group();
+  g.userData.kind = 'item';
+  g.userData.itemId = id;
+  furnGroup.add(g);
+  furnMeshes[id] = g;
+  syncItemMesh(g, it);
+  return g;
+}
+function syncItemMesh(m, it) {
+  const key = [it.w, it.d, it.h, it.color, itemTypeOf(it), it.name, it.floorH || '',
+               it.mattress === false ? 'M0' : 'M1'].join('|');   // ★v2.0 floorH / ★v2.2 mattress でベッド組み直し
+  if (m.userData.buildKey !== key) {
+    for (let i = m.children.length - 1; i >= 0; i--) m.remove(m.children[i]);
+    buildItemParts(m, it);
+    m.userData.buildKey = key;
+  }
+  m.position.set(it.x, Number(it.y) || 0, it.z);
+  m.rotation.y = -((it.rotY || 0) * Math.PI / 180);
+  if (selHelper && m.userData.itemId === selectedItemId) selHelper.update();
+}
+function clearFurniture() {
+  Object.keys(furnMeshes).forEach(function (id) {
+    furnGroup.remove(furnMeshes[id]);
+    delete furnMeshes[id];
+  });
+}
+function rebuildFurniture() {
+  clearFurniture();
+  deselect();
+  if (currentRoom === 'all') {
+    // 全体ビュー: 各部屋の選択中案 (保存済み状態) を合成表示
+    EDITABLE_ROOMS.forEach(function (rk) {
+      const pid = selectedPlanId[rk];
+      const plan = pid && plansData[rk] ? plansData[rk][pid] : null;
+      if (plan && plan.items) {
+        Object.keys(plan.items).forEach(function (id) { itemMeshBuild(rk + '/' + id, plan.items[id]); });
+      }
+    });
+  } else {
+    Object.keys(workItems).forEach(function (id) { itemMeshBuild(id, workItems[id]); });
+  }
+}
+
+function clampItem(it) {
+  const dk = dataKeyOf(currentRoom);
+  const bb = dk ? roomBBox[dk] : null;
+  if (!bb) return;
+  const rot = (((it.rotY || 0) % 180) + 180) % 180;
+  const swap = rot >= 45 && rot < 135;
+  const hx = (swap ? Number(it.d) : Number(it.w)) / 2 || 1;
+  const hz = (swap ? Number(it.w) : Number(it.d)) / 2 || 1;
+  it.x = Math.round(Math.min(Math.max(it.x, bb.minX + hx), Math.max(bb.minX + hx, bb.maxX - hx)) * 10) / 10;
+  it.z = Math.round(Math.min(Math.max(it.z, bb.minZ + hz), Math.max(bb.minZ + hz, bb.maxZ - hz)) * 10) / 10;
+}
+
+// ★v1.9 壁へのめり込み修正: 外接矩形 (roomBBox) だけでなく部屋ポリゴン本体で判定する。
+//        回転考慮の家具フットプリント 4隅+辺中点+中心 が全て部屋ポリゴン内に入っているかをチェック。
+const roomPolys = {};
+R.rooms.forEach(function (r) { roomPolys[r.key] = r.poly; });
+function footprintPoints(it) {
+  const rot = (((it.rotY || 0) % 180) + 180) % 180;
+  const swap = rot >= 45 && rot < 135;
+  const hx = Math.max(((swap ? Number(it.d) : Number(it.w)) || 1) / 2 - 0.3, 0.3);
+  const hz = Math.max(((swap ? Number(it.w) : Number(it.d)) || 1) / 2 - 0.3, 0.3);
+  return [
+    [it.x - hx, it.z - hz], [it.x + hx, it.z - hz], [it.x - hx, it.z + hz], [it.x + hx, it.z + hz],
+    [it.x, it.z - hz], [it.x, it.z + hz], [it.x - hx, it.z], [it.x + hx, it.z], [it.x, it.z]
+  ];
+}
+function outsideRoom(it) {
+  const dk = dataKeyOf(currentRoom);
+  const poly = dk ? roomPolys[dk] : null;
+  if (!poly) return false;
+  return footprintPoints(it).some(function (c) { return !pointInPoly(c, poly); });
+}
+// ★v1.9 固定設備 (キッチン・クローゼット・ペット小部屋・仕切り壁・シューズBOX・柱・カウンター等) との
+//        AABB 衝突。bottomH〜h の高さ帯判定なので、カウンター天板下 (帯71-75) への潜り込み等は許容される。
+const SOLID_FIX_TYPES = { kitchen: 1, closet: 1, petbase: 1, pillar: 1, stub_wall: 1, shelf: 1, counter: 1,
+                          wall_cabinet: 1, bathtub: 1, washstand: 1, toilet: 1, sink: 1, stove: 1,
+                          rangehood: 1, duct: 1, slide_zone: 1,     // ★v2.2 slide_zone=配置ブロッカー
+                          panel: 1, glass: 1 };   // ★v2.3 玄関袖パネル等の薄物も高さ帯付きでブロック
+const solidFixtures = {};   // dataKey -> [{minX,maxX,minZ,maxZ,minY,maxY}]
+R.fixtures.forEach(function (f) {
+  if (!SOLID_FIX_TYPES[f.type] || !f.rect) return;
+  const st = FIX_STYLE[f.type] || {};
+  (solidFixtures[f.room] = solidFixtures[f.room] || []).push({
+    minX: f.rect[0], maxX: f.rect[0] + f.rect[2],
+    minZ: f.rect[1], maxZ: f.rect[1] + f.rect[3],
+    minY: f.bottomH || 0, maxY: (f.h != null ? f.h : (st.h || 240))
+  });
+});
+// ★v2.2[6] 固定設備ヒット: インデックス配列で返す (重なりスタック免除セットの管理用)
+function fixtureHitIdxs(it) {
+  const dk = dataKeyOf(currentRoom);
+  const arr = dk ? solidFixtures[dk] : null;
+  if (!arr) return [];
+  const a = itemAabb(it);
+  const EPS = 0.5, out = [];
+  arr.forEach(function (b, i) {
+    if (a.minX < b.maxX - EPS && a.maxX > b.minX + EPS &&
+        a.minZ < b.maxZ - EPS && a.maxZ > b.minZ + EPS &&
+        a.minY < b.maxY - EPS && a.maxY > b.minY + EPS) out.push(i);
+  });
+  return out;
+}
+function hitsFixture(it, ignoreIdx) {
+  return fixtureHitIdxs(it).some(function (i) { return !(ignoreIdx && ignoreIdx[i]); });
+}
+// ★v2.2[6] 現在すでに重なっている相手 (家具id / 設備idx) を免除セットとして収集。
+//          ドラッグ開始・キー移動前に取り、その相手との衝突は分離するまで判定免除する
+//          (重なった状態で追加された家具が一切動かせなくなるスタック・バグの修正)
+function overlapState(selfId, it) {
+  const ig = { items: {}, fix: {} };
+  Object.keys(workItems).forEach(function (oid) {
+    if (oid !== selfId && pairCollides(it, workItems[oid])) ig.items[oid] = 1;
+  });
+  fixtureHitIdxs(it).forEach(function (i) { ig.fix[i] = 1; });
+  return ig;
+}
+// 移動先が無効 (家具重なり or 部屋ポリゴン外 or 固定設備めり込み) か。ig=重なり免除セット (任意)
+function blockedAny(selfId, it, ig) {
+  return collidesAny(selfId, it, ig && ig.items) || outsideRoom(it) || hitsFixture(it, ig && ig.fix);
+}
+// ★v2.0 ベッド×マットレスの特例:
+//  - マットレスはベッドの上にドラッグすると y=そのベッドの床面高 (floorH) にスナップ
+//    (汎用の天面スナップだとヘッドボード高66に載ってしまうため、床板面への特例スナップ)
+//  - マットレス×ベッドの AABB 衝突は常に許容 (フレームよりマットレスが大きい場合もブロックしない。
+//    「載らない」判断はユーザーが見た目で行う — LH3 SS × Aerus SS のはみ出し確認用)
+function isBedItem(it) { return itemTypeOf(it) === 'bed'; }
+function isMattressItem(it) { return itemTypeOf(it) === 'mattress'; }
+function bedFloorH(bed) {
+  const h = Number(bed.h) || 66;
+  return Math.min(Math.max(Number(bed.floorH) || 32, 10), Math.max(h - 10, 10));
+}
+function bedUnder(selfId, it) {
+  if (!isMattressItem(it)) return null;
+  const a = itemAabb(it);
+  let best = null;
+  Object.keys(workItems).forEach(function (oid) {
+    if (oid === selfId) return;
+    const ot = workItems[oid];
+    if (!isBedItem(ot)) return;
+    const b = itemAabb(ot);
+    if (a.minX < b.maxX - 0.5 && a.maxX > b.minX + 0.5 && a.minZ < b.maxZ - 0.5 && a.maxZ > b.minZ + 0.5) best = ot;
+  });
+  return best;
+}
+// ★v1.9 デスク載せスナップ: XZ で重なる他アイテムのうち、自分以上の footprint を持つものの最高天面。
+//        null = 支え無し (床置き)。モニター/モニターアームをデスク天面に載せる動線用。
+function supportTopFor(selfId, it) {
+  const a = itemAabb(it);
+  const myArea = (a.maxX - a.minX) * (a.maxZ - a.minZ);
+  let top = null;
+  Object.keys(workItems).forEach(function (oid) {
+    if (oid === selfId) return;
+    if (isMattressItem(it) && isBedItem(workItems[oid])) return;   // ★v2.0 ベッドは汎用天面スナップ対象外 (床板面特例で処理)
+    const b = itemAabb(workItems[oid]);
+    if (a.minX < b.maxX - 0.5 && a.maxX > b.minX + 0.5 && a.minZ < b.maxZ - 0.5 && a.maxZ > b.minZ + 0.5) {
+      const bArea = (b.maxX - b.minX) * (b.maxZ - b.minZ);
+      if (bArea + 1 >= myArea) top = Math.max(top || 0, b.maxY);
+    }
+  });
+  return top;
+}
+
+// ★v1.8 家具同士のめり込み防止: rotY90 を考慮した外接矩形 (AABB) + 高さ帯の重なり判定
+function itemAabb(it) {
+  const rot = (((it.rotY || 0) % 180) + 180) % 180;
+  const swap = rot >= 45 && rot < 135;
+  const hx = ((swap ? Number(it.d) : Number(it.w)) || 1) / 2;
+  const hz = ((swap ? Number(it.w) : Number(it.d)) || 1) / 2;
+  const y0 = Number(it.y) || 0;
+  return { minX: it.x - hx, maxX: it.x + hx, minZ: it.z - hz, maxZ: it.z + hz,
+           minY: y0, maxY: y0 + (Number(it.h) || 1) };
+}
+// ★v2.2[6] 1ペア衝突判定を関数化 (免除セット収集と共用)
+function pairCollides(it, ot) {
+  // ★v2.0 マットレス×ベッドは重なり許容 (床板面スナップで載せる。はみ出しもブロックしない)
+  if ((isMattressItem(it) && isBedItem(ot)) || (isBedItem(it) && isMattressItem(ot))) return false;
+  const a = itemAabb(it), b = itemAabb(ot);
+  const EPS = 0.5;   // 接地・接触は許容
+  return a.minX < b.maxX - EPS && a.maxX > b.minX + EPS &&
+         a.minZ < b.maxZ - EPS && a.maxZ > b.minZ + EPS &&
+         a.minY < b.maxY - EPS && a.maxY > b.minY + EPS;   // 高さ帯が重ならなければ上置きOK
+}
+function collidesAny(selfId, it, ignoreIds) {
+  return Object.keys(workItems).some(function (oid) {
+    if (oid === selfId) return false;
+    if (ignoreIds && ignoreIds[oid]) return false;   // ★v2.2[6] ドラッグ開始時から重なっている相手は免除
+    return pairCollides(it, workItems[oid]);
+  });
+}
+// 新規追加/複製用: 重ならない近傍スポットを探す (見つからなければ元位置のまま false)
+// ★v1.9 家具同士だけでなく 部屋ポリゴン外・固定設備めり込み も無効扱い
+function findFreeSpot(selfId, it) {
+  if (!blockedAny(selfId, it)) return true;
+  const ox = it.x, oz = it.z;
+  for (let ring = 1; ring <= 14; ring++) {
+    for (let k = 0; k < 16; k++) {
+      const a = k * Math.PI / 8;
+      it.x = ox + Math.cos(a) * ring * 15;
+      it.z = oz + Math.sin(a) * ring * 15;
+      clampItem(it);
+      if (!blockedAny(selfId, it)) return true;
+    }
+  }
+  it.x = ox; it.z = oz;
+  clampItem(it);
+  return false;
+}
+
+function markDirty() {
+  if (!dirty) { dirty = true; updateSaveBtn(); }
+}
+function updateSaveBtn() {
+  const btn = document.getElementById('saveBtn');
+  if (!btn) return;
+  btn.classList.toggle('clean', !dirty);
+  btn.textContent = dirty ? '💾 保存 ●' : '💾 保存';
+}
+
+// ═══════════════ 選択 + アイテムパネル ═══════════════
+function select(id) {
+  if (!workItems[id]) return;
+  selectedItemId = id;
+  if (selHelper) { scene.remove(selHelper); selHelper = null; }
+  const m = furnMeshes[id];
+  if (m) { selHelper = new THREE.BoxHelper(m, 0xff8fab); scene.add(selHelper); }
+  openItemSheet();
+}
+function deselect() {
+  selectedItemId = null;
+  if (selHelper) { scene.remove(selHelper); selHelper = null; }
+  closeItemSheetFn();
+  const dl = document.getElementById('dimLabel');
+  if (dl) dl.style.display = 'none';
+}
+
+function openItemSheet() {
+  const it = workItems[selectedItemId];
+  if (!it) return;
+  document.getElementById('itemSheetTitle').textContent = '🛋 ' + (it.name || '家具');
+  const b = document.getElementById('itemBody');
+  // ★v1.9 カタログ由来 (catalogId あり) は正式寸法のため W/D/H を編集不可のテキスト表示にする。URL欄は削除
+  const fixedDims = !!it.catalogId;
+  const dimCell = function (lab, field) {
+    return '<div class="form-group"><label class="form-label">' + lab + '</label>' +
+      (fixedDims
+        ? '<div class="form-input" style="display:flex;align-items:center;opacity:.75;">' + (it[field] || 0) + '</div>'
+        : '<input class="form-input" type="number" inputmode="decimal" min="1" value="' + (it[field] || 0) + '" oninput="updItem(\'' + field + '\', this.value)">') +
+      '</div>';
+  };
+  // ★v2.0 カラーバリエーション: カタログに colors がある商品はスウォッチ選択、無ければ従来のカラーピッカー
+  const cat = it.catalogId ? catalogData[it.catalogId] : null;
+  const colorOpts = (cat && cat.colors && cat.colors.length) ? cat.colors : null;
+  const selHex = (it.color || '').toLowerCase();
+  const selCol = colorOpts ? colorOpts.find(function (c) { return (c.hex || '').toLowerCase() === selHex; }) : null;
+  const colorBlock = colorOpts
+    ? '<div class="form-group"><label class="form-label">カラー</label>' +
+      '<div class="color-swatches">' + colorOpts.map(function (c) {
+        const on = (c.hex || '').toLowerCase() === selHex;
+        return '<button class="color-swatch' + (on ? ' sel' : '') + '" style="background:' + esc(c.hex) + ';" ' +
+          'title="' + esc(c.name) + '" aria-label="' + esc(c.name) + '" ' +
+          'onclick="setItemColor(\'' + esc(c.hex) + '\', \'' + esc(c.name) + '\')"></button>';
+      }).join('') + '</div>' +
+      '<div class="color-name">🎨 ' + esc(selCol ? selCol.name : (it.colorName || 'カスタム')) + '</div></div>'
+    : '';
+  // ★v2.0 Aerus 床面高 2段階切替 (すのこ面 19.5 ⇔ 32、既定32)。マットレスの載せ高さに反映
+  const fh = (workItems[selectedItemId] && itemTypeOf(it) === 'bed') ? (Number(it.floorH) || 32) : null;
+  const floorHBlock = (itemTypeOf(it) === 'bed' && /Aerus|床面高/.test((it.name || '') + (it.memo || '')))
+    ? '<div class="form-group"><label class="form-label">床面高 (すのこ面の高さ)</label>' +
+      '<div class="floorh-seg">' +
+      '<button class="floorh-btn' + (fh === 19.5 ? ' active' : '') + '" onclick="setBedFloorH(19.5)">19.5cm (ロー)</button>' +
+      '<button class="floorh-btn' + (fh !== 19.5 ? ' active' : '') + '" onclick="setBedFloorH(32)">32cm (ハイ)</button>' +
+      '</div></div>'
+    : '';
+  // ★v2.2[7] Aerus マットレスON/OFF (セット化): ON時は対応マットレスをベッドモデルに内蔵描画 (item.mattress として保存)
+  let mattressBlock = '';
+  if (itemTypeOf(it) === 'bed' && /Aerus/.test((it.name || '') + (it.memo || ''))) {
+    const bnm = (it.name || '') + (it.memo || '');
+    const mName = /セミシングル/.test(bnm) ? 'ニトリLH3 SS 85×198×38' :
+                  /ダブル/.test(bnm) ? 'GOKUMIN B01D 140×195×25' : 'ニトリLH3 97×198×38';
+    const mOn = it.mattress !== false;
+    mattressBlock =
+      '<div class="form-group"><label class="form-label">マットレス (セット表示: ' + esc(mName) + ')</label>' +
+      '<div class="floorh-seg">' +
+      '<button class="floorh-btn' + (mOn ? ' active' : '') + '" onclick="setBedMattress(true)">ON</button>' +
+      '<button class="floorh-btn' + (!mOn ? ' active' : '') + '" onclick="setBedMattress(false)">OFF (フレームのみ)</button>' +
+      '</div>' +
+      (/セミシングル/.test(bnm)
+        ? '<div class="dim-note">⚠ SS はマットレス幅85cm &gt; フレーム80cm — 実物同様はみ出して表示されます</div>'
+        : '') +
+      '</div>';
+  }
+  b.innerHTML =
+    '<div class="form-group"><label class="form-label">名前</label>' +
+    '<input class="form-input" value="' + esc(it.name || '') + '" oninput="updItem(\'name\', this.value)"></div>' +
+    '<div class="form-row">' +
+    dimCell('幅W (cm)', 'w') + dimCell('奥行D (cm)', 'd') + dimCell('高さH (cm)', 'h') +
+    '</div>' +
+    (fixedDims ? '<div class="dim-note">📐 カタログ商品の正式寸法のためサイズは変更できません</div>' : '') +
+    colorBlock + floorHBlock + mattressBlock +
+    '<div class="form-row">' +
+    (colorOpts ? '' : '<div class="form-group"><label class="form-label">色</label><input type="color" class="form-input" value="' + esc(it.color || '#b9a488') + '" oninput="updItem(\'color\', this.value)"></div>') +
+    '<div class="form-group"><label class="form-label">床からの高さ (cm)</label><input class="form-input" type="number" inputmode="decimal" min="0" value="' + (it.y || 0) + '" oninput="updItem(\'y\', this.value)"></div>' +
+    '<div class="form-group"><label class="form-label">回転</label><button class="btn-secondary" style="width:100%;" onclick="rotateItem()">↻ 90°</button></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" oninput="updItem(\'memo\', this.value)">' + esc(it.memo || '') + '</textarea></div>' +
+    '<div class="item-actions">' +
+    '<button class="btn-secondary" onclick="duplicateItem()">⧉ 複製</button>' +
+    '<button class="btn-danger" onclick="deleteItem()">🗑 削除</button>' +
+    '</div>';
+  document.getElementById('itemSheet').classList.add('open');
+  document.getElementById('fab').classList.add('hidden');
+}
+function closeItemSheetFn() {
+  document.getElementById('itemSheet').classList.remove('open');
+  document.getElementById('fab').classList.toggle('hidden', currentRoom === 'all');
+}
+window.closeItemSheet = closeItemSheetFn;
+
+window.updItem = function (field, val) {
+  const it = workItems[selectedItemId];
+  if (!it) return;
+  if (field === 'w' || field === 'd' || field === 'h') {
+    if (it.catalogId) return;   // ★v1.9 カタログ由来は正式寸法のため変更不可
+    const n = Number(val);
+    if (!(n > 0)) return;
+    it[field] = n;
+    clampItem(it);
+  } else if (field === 'y') {
+    it.y = Math.max(Number(val) || 0, 0);
+  } else {
+    it[field] = val;
+  }
+  const m = furnMeshes[selectedItemId];
+  if (m) syncItemMesh(m, it);
+  if (field === 'name') document.getElementById('itemSheetTitle').textContent = '🛋 ' + (it.name || '家具');
+  markDirty();
+};
+// ★v2.0 カラーバリエーション選択 (スウォッチタップ)
+window.setItemColor = function (hex, name) {
+  const it = workItems[selectedItemId];
+  if (!it) return;
+  it.color = hex;
+  it.colorName = name || null;
+  const m = furnMeshes[selectedItemId];
+  if (m) syncItemMesh(m, it);
+  markDirty();
+  openItemSheet();   // スウォッチ選択枠・カラー名表示を更新
+};
+// ★v2.0 Aerus 床面高切替 (19.5 ⇔ 32)。上に載っているマットレスの高さも追従
+window.setBedFloorH = function (v) {
+  const it = workItems[selectedItemId];
+  if (!it || itemTypeOf(it) !== 'bed') return;
+  it.floorH = Number(v);
+  const m = furnMeshes[selectedItemId];
+  if (m) syncItemMesh(m, it);
+  Object.keys(workItems).forEach(function (oid) {
+    const ot = workItems[oid];
+    if (oid !== selectedItemId && isMattressItem(ot) && bedUnder(oid, ot) === it) {
+      ot.y = bedFloorH(it);
+      const om = furnMeshes[oid];
+      if (om) syncItemMesh(om, ot);
+    }
+  });
+  markDirty();
+  openItemSheet();
+  toast('床面高を ' + v + 'cm にしました');
+};
+// ★v2.2[7] Aerus マットレスON/OFF切替 (視覚はベッドモデル内蔵。item.mattress として保存)
+window.setBedMattress = function (v) {
+  const it = workItems[selectedItemId];
+  if (!it || itemTypeOf(it) !== 'bed') return;
+  it.mattress = !!v;
+  const m = furnMeshes[selectedItemId];
+  if (m) syncItemMesh(m, it);
+  markDirty();
+  openItemSheet();
+  toast(v ? 'マットレスを表示しました (セット)' : 'フレームのみ表示にしました');
+};
+window.rotateItem = function () {
+  const it = workItems[selectedItemId];
+  if (!it) return;
+  const prevRot = it.rotY || 0, px = it.x, pz = it.z;
+  const rig = overlapState(selectedItemId, it);   // ★v2.2[6] 回転前から重なっている相手は免除
+  it.rotY = (prevRot + 90) % 360;
+  clampItem(it);
+  if (blockedAny(selectedItemId, it, rig)) {                   // ★v1.9 家具+壁ポリゴン+固定設備
+    it.rotY = prevRot; it.x = px; it.z = pz;
+    toast('壁や他の家具と重なるため回転できません');
+    return;
+  }
+  const m = furnMeshes[selectedItemId];
+  if (m) syncItemMesh(m, it);
+  markDirty();
+};
+window.duplicateItem = function () {
+  const it = workItems[selectedItemId];
+  if (!it) return;
+  const copy = JSON.parse(JSON.stringify(it));
+  copy.x += 20; copy.z += 20;
+  clampItem(copy);
+  if (!findFreeSpot(null, copy)) toast('空きスペースが無いため重なって配置されました。移動してください');  // ★v1.8
+  const id = genItemId();
+  workItems[id] = copy;
+  itemMeshBuild(id, copy);
+  markDirty();
+  select(id);
+};
+window.deleteItem = function () {
+  const it = workItems[selectedItemId];
+  if (!it) return;
+  const id = selectedItemId;
+  // ★v1.8 native confirm() はアプリ内モーダルへ置き換え (環境によって confirm が効かない問題の修正)
+  confirmModal('家具を削除', '「' + (it.name || '家具') + '」を削除しますか？', '削除する', function () {
+    deselect();                                                        // 選択状態・パネルを解除
+    if (furnMeshes[id]) { furnGroup.remove(furnMeshes[id]); delete furnMeshes[id]; }  // メッシュ削除
+    delete workItems[id];                                              // 作業データ削除
+    markDirty();
+    toast('削除しました (💾 保存で確定)');
+  });
+};
+
+function genItemId() { return 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ═══════════════ 寸法ラベル (選択中家具の上に W×D×H) ═══════════════
+const projV = new THREE.Vector3();
+function updateDimLabel() {
+  const el = document.getElementById('dimLabel');
+  if (!el) return;
+  const it = selectedItemId ? workItems[selectedItemId] : null;
+  if (!it || !renderer) { el.style.display = 'none'; return; }
+  projV.set(it.x, (Number(it.y) || 0) + (Number(it.h) || 0) + 14, it.z).project(camera);
+  if (projV.z > 1) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.left = ((projV.x + 1) / 2 * renderer.domElement.clientWidth) + 'px';
+  el.style.top = ((-projV.y + 1) / 2 * renderer.domElement.clientHeight) + 'px';
+  el.textContent = 'W' + it.w + ' × D' + it.d + ' × H' + it.h;
+}
+
+// ═══════════════ ポインタ操作 (視点/配置・ドラッグ移動・ツールチップ) ═══════════════
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+let drag = null;      // { itemId, sx, sz, px, pz }
+let downInfo = null;  // クリック判定用
+
+function setNdc(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+}
+function floorPoint(e) {
+  setNdc(e);
+  raycaster.setFromCamera(ndc, camera);
+  const p = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(floorPlane, p) ? p : null;
+}
+function pickItem(e) {
+  setNdc(e);
+  raycaster.setFromCamera(ndc, camera);
+  // ★v1.8 家具は Group (子メッシュ群) なので再帰 raycast → 親をたどって itemId 解決
+  const meshes = Object.keys(furnMeshes).map(function (k) { return furnMeshes[k]; });
+  const hits = raycaster.intersectObjects(meshes, true);
+  for (let i = 0; i < hits.length; i++) {
+    if (hits[i].object.visible === false) continue;   // ★v2.3 閉じている引き出しボックス等は無視
+    let o = hits[i].object;
+    while (o && !o.userData.itemId) o = o.parent;
+    if (o && o.userData.itemId) return o.userData.itemId;
+  }
+  return null;
+}
+function pickInfo(e) {
+  setNdc(e);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(pickables, false);
+  const focusDk = currentRoom === 'all' ? null : dataKeyOf(currentRoom);
+  for (let i = 0; i < hits.length; i++) {
+    const obj = hits[i].object;
+    if (obj.visible === false) continue;   // ★v2.3 閉じている引き出しボックス等は無視
+    const ud = obj.userData;
+    if (ud.kind === 'outlet' && !outletsVisible) continue;
+    // ★v2.2[8] ドアは両面 (どの部屋ビューでも) クリック可。他の淡色化中の他部屋設備は拾わない
+    if (focusDk && !ud.doorId && obj.parent && obj.parent.name && obj.parent.name !== focusDk) continue;
+    return ud;
+  }
+  return null;
+}
+
+// ★v1.9 ドラッグ開始情報: y 自動管理 (床置き or 天面載せ状態なら、支えを離れた時に床へ戻す)
+function beginDrag(itemId, it, p) {
+  const sup0 = supportTopFor(itemId, it);
+  const bed0 = bedUnder(itemId, it);   // ★v2.0 ベッド床板面に載っている状態も autoY 対象
+  const y0 = Number(it.y) || 0;
+  return { itemId: itemId, sx: it.x, sz: it.z, px: p.x, pz: p.z,
+           vx: it.x, vz: it.z, vy: y0,
+           ig: overlapState(itemId, it),   // ★v2.2[6] 開始時点で重なっている相手は分離まで衝突免除
+           autoY: y0 === 0 || (sup0 !== null && Math.abs(y0 - sup0) < 0.6) ||
+                  (bed0 !== null && Math.abs(y0 - bedFloorH(bed0)) < 0.6) };
+}
+// ★v1.9 ドラッグ中の位置解決:
+//  1) 部屋ポリゴン外・固定設備めり込みは 軸ごとに滑らせ、両方ダメなら直前の有効位置に留める
+//  2) 家具同士は「相手の天面に載せられるなら y を天面へスナップ」(モニター→デスク等)。
+//     載せられない (天井超え・相手が小さい) 場合は従来通り滑らせ/押し出し
+function resolveDragPos(drag, it) {
+  const igF = drag.ig && drag.ig.fix, igI = drag.ig && drag.ig.items;   // ★v2.2[6] 重なり免除セット
+  if (outsideRoom(it) || hitsFixture(it, igF)) {
+    const nz = it.z;
+    it.z = drag.vz;
+    if (outsideRoom(it) || hitsFixture(it, igF)) {
+      it.x = drag.vx; it.z = nz;
+      if (outsideRoom(it) || hitsFixture(it, igF)) { it.x = drag.vx; it.z = drag.vz; }
+    }
+  }
+  const bed = bedUnder(drag.itemId, it);
+  if (bed) {
+    it.y = bedFloorH(bed);                       // ★v2.0 マットレス→ベッド床板面 (floorH) スナップ
+  } else {
+    const sup = supportTopFor(drag.itemId, it);
+    if (sup !== null && sup + (Number(it.h) || 1) <= CH + 0.01) {
+      it.y = sup;                                // 天面へ載せる (ライブプレビュー)
+    } else if (sup === null && drag.autoY) {
+      it.y = 0;                                  // 支えから離れたら床へ (ベッドから外れた時も床へ)
+    }
+  }
+  if (collidesAny(drag.itemId, it, igI)) {
+    const nz2 = it.z;
+    it.y = drag.vy; it.z = drag.vz;
+    if (collidesAny(drag.itemId, it, igI)) {
+      it.x = drag.vx; it.z = nz2;
+      if (collidesAny(drag.itemId, it, igI)) { it.x = drag.vx; it.z = drag.vz; }
+    }
+  }
+  drag.vx = it.x; drag.vz = it.z; drag.vy = it.y;
+  // ★v2.2[6] 分離できた相手は免除セットから外す (以後は通常の衝突判定に復帰)
+  if (drag.ig) {
+    Object.keys(drag.ig.items).forEach(function (oid) {
+      if (!workItems[oid] || !pairCollides(it, workItems[oid])) delete drag.ig.items[oid];
+    });
+    if (Object.keys(drag.ig.fix).length) {
+      const now = {};
+      fixtureHitIdxs(it).forEach(function (i) { now[i] = 1; });
+      Object.keys(drag.ig.fix).forEach(function (i) { if (!now[i]) delete drag.ig.fix[i]; });
+    }
+  }
+}
+
+function bindPointer() {
+  const el = renderer.domElement;
+  el.addEventListener('pointerdown', function (e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    downInfo = { x: e.clientX, y: e.clientY, moved: false };
+    if (currentRoom === 'all') return;
+    const hitId = pickItem(e);
+    const isMouse = e.pointerType === 'mouse';
+    if (hitId && workItems[hitId] && (isMouse || mode === 'place')) {
+      if (hitId !== selectedItemId) select(hitId);
+      const p = floorPoint(e);
+      const it = workItems[hitId];
+      if (p && it) { drag = beginDrag(hitId, it, p); controls.enabled = false; }
+    } else if (!hitId && !isMouse && mode === 'place' && selectedItemId) {
+      const p = floorPoint(e);
+      const it = workItems[selectedItemId];
+      if (p && it) { drag = beginDrag(selectedItemId, it, p); controls.enabled = false; }
+    }
+  });
+  el.addEventListener('pointermove', function (e) {
+    if (downInfo && (Math.abs(e.clientX - downInfo.x) > 6 || Math.abs(e.clientY - downInfo.y) > 6)) downInfo.moved = true;
+    if (!drag) return;
+    const p = floorPoint(e);
+    if (!p) return;
+    const it = workItems[drag.itemId];
+    if (!it) return;
+    it.x = drag.sx + (p.x - drag.px);
+    it.z = drag.sz + (p.z - drag.pz);
+    clampItem(it);
+    resolveDragPos(drag, it);   // ★v1.9 壁ポリゴン/設備は滑らせ、家具同士は載せられるなら y スナップ
+    const m = furnMeshes[drag.itemId];
+    if (m) syncItemMesh(m, it);
+  });
+  const endDrag = function (e) {
+    if (drag) { markDirty(); drag = null; controls.enabled = true; }
+    if (downInfo && !downInfo.moved && e.type === 'pointerup') handleClick(e);
+    downInfo = null;
+  };
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
+}
+
+// ★v2.3[9] 家具アイテム内の引き出しクリックプレート判定 (最前ヒットのメッシュ chain から drawerId を拾う)
+function pickItemDrawer(e) {
+  setNdc(e);
+  raycaster.setFromCamera(ndc, camera);
+  const meshes = Object.keys(furnMeshes).map(function (k) { return furnMeshes[k]; });
+  const hits = raycaster.intersectObjects(meshes, true);
+  if (!hits.length) return null;
+  let near = null;   // 最前の可視ヒット +3cm 以内にプレートがあれば引き出しクリックとみなす
+  for (let i = 0; i < hits.length; i++) {
+    if (hits[i].object.visible === false) continue;
+    if (near === null) near = hits[i].distance + 3;
+    if (hits[i].distance > near) break;
+    if (hits[i].object.userData.drawerId) return hits[i].object.userData.drawerId;
+  }
+  return null;
+}
+
+function handleClick(e) {
+  hideTooltip();
+  const drId = pickItemDrawer(e);
+  if (drId) { toggleDrawer(drId); return; }          // ★v2.3[9] KM504/エトナの引き出しクリック=開閉 (全体ビューでも可)
+  if (currentRoom !== 'all') {
+    const hitId = pickItem(e);
+    if (hitId && workItems[hitId]) { select(hitId); return; }
+  }
+  const info = pickInfo(e);
+  if (info && info.drawerId) { toggleDrawer(info.drawerId); return; }   // ★v2.3[9] キッチン引き出し
+  if (info && info.doorId) { toggleDoor(info.doorId); return; }   // ★v2.2[8] ドアはクリック=開閉 (ツールチップは出さない)
+  if (info) { showTooltip(e, info); return; }
+  if (selectedItemId) deselect();
+}
+
+function showTooltip(e, ud) {
+  const tt = document.getElementById('tooltip');
+  let html = '';
+  if (ud.kind === 'outlet') {
+    const o = ud.info;
+    const parts = [(o.caps || 2) + '口'];
+    if (o.tv) parts.push('テレビ端子');
+    if (o.lan) parts.push('LAN');
+    html = '<div class="tt-title">🔌 コンセント No.' + o.no + '</div>' +
+      '<div class="tt-body">' + parts.join(' + ') + '<br>' + esc(o.label || '') +
+      '<br>高さ約' + (o.h || 25) + 'cm' + (o.est ? ' (位置は推定)' : '') + '</div>';
+  } else {
+    html = '<div class="tt-body">' + esc(typeof ud.info === 'string' ? ud.info : (ud.info && ud.info.label) || '') + '</div>';
+  }
+  tt.innerHTML = html;
+  tt.style.display = 'block';
+  const vp = document.getElementById('viewport').getBoundingClientRect();
+  tt.style.left = Math.max(4, Math.min(e.clientX - vp.left + 10, vp.width - 270)) + 'px';
+  tt.style.top = Math.max(4, Math.min(e.clientY - vp.top + 10, vp.height - 110)) + 'px';
+}
+function hideTooltip() {
+  const tt = document.getElementById('tooltip');
+  if (tt) tt.style.display = 'none';
+}
+
+// ═══════════════ モード / コンセント表示 ═══════════════
+window.setMode = function (m) {
+  mode = m;
+  document.getElementById('modeViewBtn').classList.toggle('active', m === 'view');
+  document.getElementById('modePlaceBtn').classList.toggle('active', m === 'place');
+  if (controls) controls.enableRotate = (m === 'view');
+  toast(m === 'view' ? '視点モード: ドラッグで回転・ピンチでズーム' : '配置モード: ドラッグで選択中の家具を移動');
+};
+window.toggleOutlets = function () {
+  outletsVisible = !outletsVisible;
+  outletMeshes.forEach(function (m) { m.visible = outletsVisible; });
+  document.getElementById('outletBtn').classList.toggle('active', outletsVisible);
+  hideTooltip();
+};
+
+// ═══════════════ キーボード (PC): 矢印移動 / R回転 / Delete削除 / Esc ═══════════════
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    // 優先順: ツールチップ → モーダル → 家具シート → 選択解除(パネルも閉じる)
+    const tt = document.getElementById('tooltip');
+    if (tt && tt.style.display === 'block') { hideTooltip(); return; }
+    if (document.getElementById('modalOverlay').classList.contains('active')) { closeModalFn(); return; }
+    if (document.getElementById('furnSheet').classList.contains('open')) { closeFurnSheetFn(); return; }
+    if (selectedItemId) { deselect(); return; }
+    if (document.getElementById('itemSheet').classList.contains('open')) { closeItemSheetFn(); return; }
+    return;
+  }
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (currentRoom === 'all' || !selectedItemId) return;
+  const it = workItems[selectedItemId];
+  if (!it) return;
+  if (e.key === 'r' || e.key === 'R') { window.rotateItem(); return; }
+  if (e.key === 'Delete') { window.deleteItem(); return; }
+  const step = e.shiftKey ? 10 : 1;
+  let used = true;
+  const px = it.x, pz = it.z;
+  const kig = overlapState(selectedItemId, it);   // ★v2.2[6] 移動前から重なっている相手は免除 (スタック解消)
+  if (e.key === 'ArrowUp') it.z -= step;
+  else if (e.key === 'ArrowDown') it.z += step;
+  else if (e.key === 'ArrowLeft') it.x -= step;
+  else if (e.key === 'ArrowRight') it.x += step;
+  else used = false;
+  if (used) {
+    e.preventDefault();
+    clampItem(it);
+    if (blockedAny(selectedItemId, it, kig)) { it.x = px; it.z = pz; return; }   // ★v1.9 家具+壁+設備めり込み防止
+    if (isMattressItem(it)) {                                               // ★v2.0 キー移動でもベッド床板面/床へ追従
+      const kb = bedUnder(selectedItemId, it);
+      if (kb) it.y = bedFloorH(kb);
+      else if (supportTopFor(selectedItemId, it) === null) it.y = 0;
+    }
+    const m = furnMeshes[selectedItemId];
+    if (m) syncItemMesh(m, it);
+    markDirty();
+  }
+});
+
+// ═══════════════ 部屋タブ / ビュー切替 ═══════════════
+function renderRoomTabs() {
+  const el = document.getElementById('roomTabs');
+  el.innerHTML = ROOMS_UI.map(function (r) {
+    return '<button class="room-tab' + (currentRoom === r.key ? ' active' : '') + '" onclick="switchRoom(\'' + r.key + '\')">' + r.name + '</button>';
+  }).join('');
+}
+
+// ★v1.8 dirtyGuard も native confirm() からアプリ内モーダルへ (コールバック方式)
+function dirtyGuard(onOk, onCancel) {
+  if (!dirty) { onOk(); return; }
+  confirmModal('未保存の変更', '未保存の変更があります。破棄して続行しますか？', '破棄して続行', function () {
+    dirty = false;
+    updateSaveBtn();
+    onOk();
+  }, onCancel);
+}
+
+window.switchRoom = function (key) {
+  if (key === currentRoom) return;
+  dirtyGuard(function () {
+    currentRoom = key;
+    hideTooltip();
+    closeFurnSheetFn();
+    renderRoomTabs();
+    applyRoomView();
+  });
+};
+
+function applyRoomView() {
+  const dk = currentRoom === 'all' ? null : dataKeyOf(currentRoom);
+  setFocus(dk);
+  if (currentRoom === 'all') { workItems = {}; dirty = false; }
+  else loadWork();
+  currentZone = null;          // ★v1.9 部屋切替でゾーン選択をリセット
+  renderZoneChips();
+  rebuildFurniture();
+  renderPlanBar();
+  document.getElementById('fab').classList.toggle('hidden', currentRoom === 'all');
+  setHint(currentRoom === 'all'
+    ? '全体ビュー: 各部屋の選択中案を合成表示 (編集は部屋タブから)'
+    : (ROOM_LABEL[currentRoom] || '') + ' ｜ 視点=カメラ操作 / 配置=家具ドラッグ');
+  window.setCamera(camPreset === 'eye' && currentRoom === 'all' ? 'iso' : camPreset);
+}
+
+// ═══════════════ 案 (プラン) 管理 ═══════════════
+function loadWork() {
+  const rk = currentRoom;
+  const pid = selectedPlanId[rk];
+  const plan = pid && plansData[rk] ? plansData[rk][pid] : null;
+  workItems = plan && plan.items ? JSON.parse(JSON.stringify(plan.items)) : {};
+  dirty = false;
+}
+function saveSelCache() {
+  try { localStorage.setItem('nozaroom_selected', JSON.stringify(selectedPlanId)); } catch (e) {}
+}
+function cleanItem(it) {
+  return {
+    name: it.name || '家具', w: Number(it.w) || 10, d: Number(it.d) || 10, h: Number(it.h) || 10,
+    x: Number(it.x) || 0, z: Number(it.z) || 0, y: Number(it.y) || 0, rotY: Number(it.rotY) || 0,
+    color: it.color || '#b9a488', url: it.url || null, memo: it.memo || null, catalogId: it.catalogId || null,
+    type: it.type || null,   // ★v1.8 パラメトリックモデル用 (未設定時は catalogId 経由で解決)
+    colorName: it.colorName || null,   // ★v2.0 カラーバリエーション選択名 (既存データは undefined でもOK)
+    floorH: (it.floorH === undefined || it.floorH === null || it.floorH === '') ? null : Number(it.floorH),   // ★v2.0 Aerus床面高 (null=既定32)
+    mattress: it.mattress === false ? false : true   // ★v2.2 Aerusマットレス内蔵表示 (既定ON)
+  };
+}
+
+function renderPlanBar() {
+  const bar = document.getElementById('planBar');
+  if (currentRoom === 'all') {
+    bar.innerHTML = '<span class="plan-hint">🗂 全体ビュー: 各部屋の選択中の案を合成表示</span>';
+    return;
+  }
+  const rk = currentRoom;
+  const plans = plansData[rk] || {};
+  const sel = selectedPlanId[rk];
+  let opts = '';
+  Object.keys(plans).forEach(function (id) {
+    opts += '<option value="' + id + '"' + (id === sel ? ' selected' : '') + '>' + esc(plans[id].name || '案') + '</option>';
+  });
+  const has = !!opts;
+  bar.innerHTML =
+    '<select class="plan-select" id="planSelect" onchange="switchPlan(this.value)"' + (has ? '' : ' disabled') + '>' +
+    (has ? opts : '<option>(案なし)</option>') + '</select>' +
+    '<button class="plan-btn" onclick="newPlan()" title="新規案">＋</button>' +
+    '<button class="plan-btn" onclick="duplicatePlan()" title="案を複製"' + (has ? '' : ' disabled') + '>⧉</button>' +
+    '<button class="plan-btn" onclick="renamePlan()" title="名前変更"' + (has ? '' : ' disabled') + '>✎</button>' +
+    '<button class="plan-btn" onclick="deletePlanUI()" title="案を削除"' + (has ? '' : ' disabled') + '>🗑</button>' +
+    '<button class="plan-btn save' + (dirty ? '' : ' clean') + '" id="saveBtn" onclick="savePlan()">💾 保存' + (dirty ? ' ●' : '') + '</button>';
+}
+
+async function createPlanInternal(rk, name, items) {
+  const data = { name: name, items: items || {}, createdBy: currentUser, createdAt: DBI.now() };
+  const id = await DBI.createPlan(rk, data);
+  (plansData[rk] = plansData[rk] || {})[id] = { name: name, items: JSON.parse(JSON.stringify(items || {})), createdBy: currentUser, createdAt: Date.now() };
+  selectedPlanId[rk] = id;
+  saveSelCache();
+  return id;
+}
+
+window.switchPlan = function (pid) {
+  dirtyGuard(function () {
+    selectedPlanId[currentRoom] = pid;
+    saveSelCache();
+    loadWork();
+    rebuildFurniture();
+    renderPlanBar();
+  }, function () { renderPlanBar(); });   // キャンセル時は select 表示を元に戻す
+};
+
+window.newPlan = function () {
+  if (currentRoom === 'all') return;
+  dirtyGuard(function () {
+    const rk = currentRoom;
+    const count = Object.keys(plansData[rk] || {}).length;
+    promptModal('新しい案', '案の名前', '案' + (count + 1), async function (name) {
+      await createPlanInternal(rk, name);
+      loadWork();
+      rebuildFurniture();
+      renderPlanBar();
+      toast('「' + name + '」を作成しました');
+    });
+  });
+};
+
+window.duplicatePlan = function () {
+  if (currentRoom === 'all') return;
+  const rk = currentRoom;
+  const pid = selectedPlanId[rk];
+  const plan = pid && plansData[rk] ? plansData[rk][pid] : null;
+  if (!plan) return;
+  const items = {};
+  Object.keys(workItems).forEach(function (id) { items[id] = cleanItem(workItems[id]); });
+  promptModal('案を複製', '新しい案の名前', (plan.name || '案') + 'のコピー', async function (name) {
+    await createPlanInternal(rk, name, items);
+    dirty = false;
+    loadWork();
+    rebuildFurniture();
+    renderPlanBar();
+    toast('「' + name + '」に複製しました');
+  });
+};
+
+window.renamePlan = function () {
+  if (currentRoom === 'all') return;
+  const rk = currentRoom;
+  const pid = selectedPlanId[rk];
+  const plan = pid && plansData[rk] ? plansData[rk][pid] : null;
+  if (!plan) return;
+  promptModal('案の名前変更', '案の名前', plan.name || '', async function (name) {
+    await DBI.updatePlan(rk, pid, { name: name, updatedBy: currentUser, updatedAt: DBI.now() });
+    plan.name = name;
+    renderPlanBar();
+  });
+};
+
+window.deletePlanUI = function () {
+  if (currentRoom === 'all') return;
+  const rk = currentRoom;
+  const pid = selectedPlanId[rk];
+  const plan = pid && plansData[rk] ? plansData[rk][pid] : null;
+  if (!plan) return;
+  // ★v1.8 native confirm() → アプリ内モーダル
+  confirmModal('案を削除', '案「' + (plan.name || '') + '」を削除しますか？この操作は取り消せません', '削除する', function () {
+  DBI.deletePlan(rk, pid).then(function () {
+    delete plansData[rk][pid];
+    selectedPlanId[rk] = Object.keys(plansData[rk])[0] || null;
+    saveSelCache();
+    dirty = false;
+    loadWork();
+    rebuildFurniture();
+    renderPlanBar();
+    toast('削除しました');
+  });
+  });
+};
+
+window.savePlan = async function () {
+  if (currentRoom === 'all') return;
+  const rk = currentRoom;
+  let pid = selectedPlanId[rk];
+  if (!pid) pid = await createPlanInternal(rk, '案1');
+  const items = {};
+  Object.keys(workItems).forEach(function (id) { items[id] = cleanItem(workItems[id]); });
+  try {
+    await DBI.updatePlan(rk, pid, { items: items, updatedBy: currentUser, updatedAt: DBI.now() });
+    plansData[rk][pid].items = JSON.parse(JSON.stringify(items));
+    plansData[rk][pid].updatedBy = currentUser;
+    plansData[rk][pid].updatedAt = Date.now();
+    dirty = false;
+    updateSaveBtn();
+    toast('保存しました');
+  } catch (err) {
+    console.error(err);
+    toast('保存に失敗しました: ' + (err && err.message));
+  }
+};
+
+// 未保存変更の離脱警告
+window.addEventListener('beforeunload', function (e) {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ═══════════════ 家具追加シート ═══════════════
+window.openFurnSheet = function () {
+  if (currentRoom === 'all') return;
+  document.getElementById('furnBackdrop').classList.add('open');
+  document.getElementById('furnSheet').classList.add('open');
+  document.body.classList.add('modal-open');
+  renderFurnBody();
+  trapFocus(document.getElementById('furnSheet'));
+};
+function closeFurnSheetFn() {
+  document.getElementById('furnBackdrop').classList.remove('open');
+  document.getElementById('furnSheet').classList.remove('open');
+  document.body.classList.remove('modal-open');
+  releaseTrap();
+}
+window.closeFurnSheet = closeFurnSheetFn;
+window.setFurnTab = function (t) {
+  furnTab = t;
+  document.getElementById('ftabCatalog').classList.toggle('active', t === 'catalog');
+  document.getElementById('ftabPlaced').classList.toggle('active', t === 'placed');
+  document.getElementById('ftabFree').classList.toggle('active', t === 'free');
+  renderFurnBody();
+};
+
+function catRow(id, c) {
+  return '<button class="cat-row" onclick="addFromCatalog(\'' + id + '\')">' +
+    '<span class="cat-dot" style="background:' + esc(c.color || '#b9a488') + '"></span>' +
+    '<span style="flex:1;min-width:0;"><div class="cat-name">' + esc(c.name) + '</div>' +
+    (c.memo ? '<div class="cat-memo">' + esc(String(c.memo).slice(0, 42)) + '</div>' : '') + '</span>' +
+    '<span class="cat-dims">' + c.w + '×' + c.d + '×' + c.h + '</span></button>';
+}
+
+function renderFurnBody() {
+  const b = document.getElementById('furnBody');
+  if (furnTab === 'catalog') {
+    const rk = currentRoom;
+    const ids = Object.keys(catalogData);
+    if (!ids.length) {
+      b.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🛋</div><div class="empty-state-text">カタログは空です</div></div>';
+      return;
+    }
+    let html = '';
+    const mine = ids.filter(function (id) { return catalogData[id].room === rk; });
+    const others = ids.filter(function (id) { return catalogData[id].room !== rk; });
+    if (mine.length) {
+      html += '<div class="cat-section-title">📌 ' + (ROOM_LABEL[rk] || '') + ' 向け</div>';
+      mine.forEach(function (id) { html += catRow(id, catalogData[id]); });
+    }
+    const byRoom = {};
+    others.forEach(function (id) {
+      const rm = catalogData[id].room || 'other';
+      (byRoom[rm] = byRoom[rm] || []).push(id);
+    });
+    Object.keys(byRoom).forEach(function (rm) {
+      html += '<div class="cat-section-title">' + esc(ROOM_LABEL[rm] || 'その他') + ' 向け</div>';
+      byRoom[rm].forEach(function (id) { html += catRow(id, catalogData[id]); });
+    });
+    b.innerHTML = html;
+  } else if (furnTab === 'placed') {
+    const ids = Object.keys(workItems);
+    if (!ids.length) {
+      b.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div><div class="empty-state-text">この案にはまだ家具がありません</div></div>';
+      return;
+    }
+    let html = '';
+    ids.forEach(function (id) {
+      const it = workItems[id];
+      html += '<button class="cat-row" onclick="selectFromList(\'' + id + '\')">' +
+        '<span class="cat-dot" style="background:' + esc(it.color || '#b9a488') + '"></span>' +
+        '<span class="cat-name">' + esc(it.name || '家具') + '</span>' +
+        '<span class="cat-dims">' + it.w + '×' + it.d + '×' + it.h + '</span></button>';
+    });
+    b.innerHTML = html;
+  } else {
+    b.innerHTML =
+      '<div class="form-group"><label class="form-label">名前</label><input class="form-input" id="ffName" placeholder="例: 本棚"></div>' +
+      '<div class="form-row">' +
+      '<div class="form-group"><label class="form-label">幅W (cm)</label><input class="form-input" id="ffW" type="number" inputmode="decimal" value="60"></div>' +
+      '<div class="form-group"><label class="form-label">奥行D (cm)</label><input class="form-input" id="ffD" type="number" inputmode="decimal" value="40"></div>' +
+      '<div class="form-group"><label class="form-label">高さH (cm)</label><input class="form-input" id="ffH" type="number" inputmode="decimal" value="90"></div>' +
+      '</div>' +
+      '<div class="form-group"><label class="form-label">色</label><input type="color" class="form-input" id="ffColor" value="#b9a488"></div>' +
+      '<button class="btn-primary" style="width:100%;" onclick="addFreeItem()">＋ 部屋の中央に追加</button>';
+  }
+}
+
+async function addItem(base, zone) {
+  const rk = currentRoom;
+  if (rk === 'all') return;
+  if (!selectedPlanId[rk]) {
+    await createPlanInternal(rk, '案1');
+    renderPlanBar();
+  }
+  const bb = roomBBox[dataKeyOf(rk)];
+  let sx = (bb.minX + bb.maxX) / 2, sz = (bb.minZ + bb.maxZ) / 2;
+  // ★v2.1 zone付きカタログ商品はLDKで該当サブゾーン中央に出現 (findFreeSpot はゾーン中心起点)。
+  //        zone無し商品・自由サイズは従来通り部屋中央、LDK以外の部屋では zone を無視
+  if (rk === 'ldk' && zone) {
+    const zn = (R.zones || []).find(function (q) { return q.room === 'ldk' && q.key === zone; });
+    if (zn && zn.rect) { sx = zn.rect[0] + zn.rect[2] / 2; sz = zn.rect[1] + zn.rect[3] / 2; }
+  }
+  const it = Object.assign({ x: sx, z: sz, y: 0, rotY: 0 }, base);
+  clampItem(it);
+  if (!findFreeSpot(null, it)) toast('空きスペースが無いため重なって配置されました。移動してください');  // ★v1.8
+  const id = genItemId();
+  workItems[id] = it;
+  itemMeshBuild(id, it);
+  markDirty();
+  select(id);
+}
+
+window.addFromCatalog = function (cid) {
+  const c = catalogData[cid];
+  if (!c) return;
+  closeFurnSheetFn();
+  // ★v2.0 デフォルト色に一致する colors エントリがあればカラー名も初期セット
+  const cn = (c.colors || []).find(function (q) { return (q.hex || '').toLowerCase() === (c.color || '').toLowerCase(); });
+  addItem({ name: c.name, w: c.w, d: c.d, h: c.h, color: c.color || '#b9a488', url: c.url || null, memo: c.memo || null,
+            catalogId: cid, type: c.type || null, colorName: cn ? cn.name : null }, c.zone || null);   // ★v2.1 zone=LDK初期配置先
+};
+window.selectFromList = function (id) {
+  closeFurnSheetFn();
+  select(id);
+};
+window.addFreeItem = function () {
+  const name = document.getElementById('ffName').value.trim() || '家具';
+  const w = Number(document.getElementById('ffW').value);
+  const d = Number(document.getElementById('ffD').value);
+  const h = Number(document.getElementById('ffH').value);
+  if (!(w > 0 && d > 0 && h > 0)) { toast('寸法は正の数で入力してください'); return; }
+  const color = document.getElementById('ffColor').value || '#b9a488';
+  closeFurnSheetFn();
+  addItem({ name: name, w: w, d: d, h: h, color: color });
+};
+
+// ═══════════════ 認証 / 起動 ═══════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+window.selectName = function (name) {
+  currentUser = name;
+  localStorage.setItem('aritomo_user', name);
+  boot();
+};
+
+let booted = false;
+async function boot() {
+  if (booted) return;
+  booted = true;
+  showScreen('appScreen');
+  document.getElementById('userBadge').textContent = currentUser + (DEBUG ? ' (debug)' : '');
+  try {
+    const all = await DBI.loadAll();
+    plansData = all.plans || {};
+    catalogData = all.catalog || {};
+    if (!Object.keys(catalogData).length && CATALOG_SEED && CATALOG_SEED.items) {
+      // 初回のみカタログシードを書き込み (既にあればスキップ)
+      const items = CATALOG_SEED.items.map(function (it) {
+        return Object.assign({}, it, { createdBy: 'seed', createdAt: DBI.now() });
+      });
+      catalogData = (await DBI.seedCatalog(items)) || {};
+    } else if (CATALOG_SEED && CATALOG_SEED.items) {
+      // ★v1.9 差分シード: 既存カタログに無い新商品 (model/name 単位) だけ追記 (v1.2 追加のモニター/アーム)
+      const have = {};
+      Object.keys(catalogData).forEach(function (id) { have[catalogData[id].model || catalogData[id].name] = 1; });
+      const missing = CATALOG_SEED.items.filter(function (it) { return !have[it.model || it.name]; });
+      if (missing.length) {
+        const items = missing.map(function (it) {
+          return Object.assign({}, it, { createdBy: 'seed', createdAt: DBI.now() });
+        });
+        const added = (await DBI.seedCatalog(items)) || {};
+        Object.keys(added).forEach(function (id) { catalogData[id] = added[id]; });
+      }
+    }
+    // ★v2.0 旧シード由来の既存カタログに colors をシードから補完 (メモリ内のみ・DB書込なし。
+    //        カラーバリエーションは静的設定なので毎起動マージで十分) ★v2.1 zone も同様に補完
+    if (CATALOG_SEED && CATALOG_SEED.items) {
+      const seedByKey = {};
+      CATALOG_SEED.items.forEach(function (it) { seedByKey[it.model || it.name] = it; });
+      Object.keys(catalogData).forEach(function (id) {
+        const c = catalogData[id];
+        const s = seedByKey[c.model || c.name];
+        if (s && s.colors && !c.colors) c.colors = s.colors;
+        if (s && s.zone && !c.zone) c.zone = s.zone;   // ★v2.1 LDKサブゾーン初期配置先
+      });
+    }
+  } catch (err) {
+    console.error('データ読み込みに失敗:', err);
+    alert('データの読み込みに失敗しました: ' + (err && err.message));
+  }
+  let cache = {};
+  try { cache = JSON.parse(localStorage.getItem('nozaroom_selected') || '{}'); } catch (e) {}
+  EDITABLE_ROOMS.forEach(function (rk) {
+    const plans = plansData[rk] || {};
+    selectedPlanId[rk] = (cache[rk] && plans[cache[rk]]) ? cache[rk] : (Object.keys(plans)[0] || null);
+  });
+  initThree();
+  renderRoomTabs();
+  applyRoomView();
+}
+
+if (DEBUG) {
+  if (!currentUser) currentUser = 'デバッグ';
+  boot();
+} else if (auth) {
+  auth.onAuthStateChanged(function (user) {
+    if (user) {
+      if (currentUser) boot();
+      else showScreen('nameScreen');
+    } else {
+      showScreen('authScreen');
+    }
+  });
+} else {
+  showScreen('authScreen');
+}
+</script>
+</body>
+</html>
