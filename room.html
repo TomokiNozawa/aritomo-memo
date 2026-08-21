@@ -172,7 +172,10 @@ body.modal-open { overflow: hidden; }
 .dim-note { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
 /* ── Viewport ── */
-#viewport { flex: 1; position: relative; min-height: 0; background: var(--bg-primary); }
+#viewport { flex: 1; position: relative; min-height: 0; background: var(--bg-primary);
+  /* ★v2.5[1] 長押し掴みでiOSのコールアウト/テキスト選択が出ないように */
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
 #viewport canvas { display: block; }
 .vp-controls {
   position: absolute; display: flex; flex-direction: column; gap: 6px; z-index: 50;
@@ -184,6 +187,7 @@ body.modal-open { overflow: hidden; }
   border-radius: var(--radius); background: var(--bg-card); color: var(--text-secondary);
   font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
   transition: all var(--transition); box-shadow: var(--shadow); opacity: 0.92;
+  touch-action: manipulation;   /* ★v2.5[10] ダブルタップズーム誤発火防止 */
 }
 .vp-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .mode-seg { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
@@ -212,6 +216,44 @@ body.modal-open { overflow: hidden; }
   background: rgba(198,108,32,0.88); color: #fff; font-size: 11px; font-weight: 600;
   padding: 2px 7px; border-radius: 6px; pointer-events: none; white-space: nowrap;
 }
+
+/* ── ★v2.5[2] 選択中家具の操作ハンドル (移動⊕ / 回転↻)。スクリーンサイズ一定・44px以上 ── */
+.gizmo-btn {
+  display: none; position: absolute; z-index: 56;
+  width: 48px; height: 48px; margin-left: -24px; margin-top: -24px;
+  border-radius: 50%; border: 2px solid #fff; padding: 0;
+  background: var(--accent); color: #fff; font-size: 22px; font-weight: 700;
+  align-items: center; justify-content: center; font-family: inherit;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.35); cursor: grab;
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.gizmo-btn.show { display: flex; }
+#gizmoMove:active { cursor: grabbing; transform: scale(1.1); }
+#gizmoRot { background: var(--bg-card); color: var(--accent); border-color: var(--accent); font-size: 20px; }
+#gizmoRot:active { transform: scale(0.92); }
+
+/* ★v2.5[5] itemSheet 折りたたみ (peek): タイトル+主要ボタンだけの1行バー */
+#itemSheet .peek-bar {
+  display: none; align-items: center; gap: 6px;
+  padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+}
+#itemSheet.peek .peek-bar { display: flex; }
+#itemSheet.peek .sheet-header, #itemSheet.peek .sheet-body { display: none; }
+.peek-title {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 700; font-size: 13px; cursor: pointer; padding: 10px 4px; min-height: 44px;
+  display: flex; align-items: center;
+}
+.peek-bar button { min-width: 44px; min-height: 44px; padding: 8px 10px; font-size: 15px; flex: 0 0 auto; }
+.peek-grip {
+  position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+  width: 36px; height: 4px; border-radius: 2px; background: var(--border); pointer-events: none;
+}
+/* ★v2.5[5] ヘッダ/バー上のスワイプはブラウザのパンに取られず自前検知 (本文はpan-yでスクロール可) */
+#itemSheetHeader, #itemPeekBar { touch-action: none; }
+#itemSheet .sheet-body { touch-action: pan-y; }
+/* ★v2.5[10] itemSheet が開いている間、ヒント/トーストがバーに隠れないよう持ち上げる */
+body.itemsheet-open #vpHint { bottom: 78px; }
 
 /* ── FAB ── */
 .fab {
@@ -406,11 +448,17 @@ input[type="color"].form-input { padding: 4px 6px; height: 44px; cursor: pointer
       <button class="vp-btn" onclick="setCamera('iso')" title="斜め視点">斜め</button>
       <button class="vp-btn" onclick="setCamera('eye')" title="室内視点(目線140cm)">室内</button>
       <button class="vp-btn active" id="outletBtn" onclick="toggleOutlets()" title="コンセント表示">🔌</button>
+      <!-- ★v2.5[7] ピンチが苦手な場面用のズームボタン (長押しで連続) -->
+      <button class="vp-btn" id="zoomInBtn" aria-label="ズームイン" title="ズームイン (長押しで連続)">＋</button>
+      <button class="vp-btn" id="zoomOutBtn" aria-label="ズームアウト" title="ズームアウト (長押しで連続)">−</button>
     </div>
     <div id="vpHint"></div>
     <div id="tooltip"></div>
     <div id="dimLabel"></div>
     <div id="drawerLabels"></div>
+    <!-- ★v2.5[2] 選択中家具の操作ハンドル: ⊕ドラッグ=移動 (視点モードでも可) / ↻タップ=90°回転 -->
+    <button class="gizmo-btn" id="gizmoMove" aria-label="ドラッグで家具を移動">⊕</button>
+    <button class="gizmo-btn" id="gizmoRot" aria-label="90度回転">↻</button>
   </div>
 
   <button class="fab" id="fab" onclick="openFurnSheet()" aria-label="家具を置く">+</button>
@@ -433,9 +481,21 @@ input[type="color"].form-input { padding: 4px 6px; height: 44px; cursor: pointer
 
 <!-- 選択中アイテムパネル (非モーダル: 3D操作と並行利用) -->
 <div class="sheet" id="itemSheet" aria-label="選択中の家具">
-  <div class="sheet-header">
+  <!-- ★v2.5[5] 折りたたみ (peek) バー: 3Dを隠さない1行表示。タイトルタップ or 上スワイプで全開 -->
+  <div class="peek-bar" id="itemPeekBar">
+    <div class="peek-grip"></div>
+    <div class="peek-title" id="itemPeekTitle" onclick="expandItemSheet()" title="タップで詳細を開く">家具</div>
+    <button class="btn-secondary" onclick="rotateItem()" aria-label="90度回転">↻</button>
+    <button class="btn-secondary" onclick="duplicateItem()" aria-label="複製">⧉</button>
+    <button class="btn-danger" onclick="deleteItem()" aria-label="削除">🗑</button>
+    <button class="btn-secondary" onclick="expandItemSheet()" aria-label="詳細を開く">⌃</button>
+  </div>
+  <div class="sheet-header" id="itemSheetHeader">
     <div class="sheet-title" id="itemSheetTitle">家具</div>
-    <button class="sheet-close" onclick="closeItemSheet()" aria-label="閉じる">&times;</button>
+    <div style="display:flex;gap:2px;">
+      <button class="sheet-close" onclick="collapseItemSheet()" aria-label="折りたたむ" title="折りたたんで3Dを見る">⌄</button>
+      <button class="sheet-close" onclick="closeItemSheet()" aria-label="閉じる">&times;</button>
+    </div>
   </div>
   <div class="sheet-body" id="itemBody"></div>
 </div>
@@ -557,6 +617,9 @@ let selectedItemId = null;
 let mode = 'view';         // 'view' | 'place'
 let outletsVisible = true;
 let furnTab = 'catalog';
+// ★v2.5 モバイル操作性: 粗ポインタ (タッチ主体) 端末判定 + タッチイベント判定
+const IS_COARSE = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+function isTouchEvent(e) { return !!(e && e.pointerType && e.pointerType !== 'mouse'); }
 
 function esc(s) {
   if (s === null || s === undefined) return '';
@@ -1354,7 +1417,8 @@ function initThree() {
   scene.background = new THREE.Color(isDark ? 0x11161f : 0xffe9ee);
   camera = new THREE.PerspectiveCamera(55, Math.max(vp.clientWidth, 1) / Math.max(vp.clientHeight, 1), 5, 30000);
   renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // ★v2.5[9] モバイル (粗ポインタ) は pixelRatio 上限 1.75 に抑えて描画負荷軽減 (antialias は維持)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_COARSE ? 1.75 : 2));
   renderer.setSize(vp.clientWidth, vp.clientHeight);
   vp.appendChild(renderer.domElement);
   controls = new OrbitControls(camera, renderer.domElement);
@@ -1374,6 +1438,9 @@ function initThree() {
   furnGroup = new THREE.Group();
   scene.add(furnGroup);
   bindPointer();
+  bindGizmos();      // ★v2.5[2] 移動⊕/回転↻ハンドル
+  bindSheetSwipe();  // ★v2.5[5] itemSheet スワイプで peek⇔全開
+  bindZoomButtons(); // ★v2.5[7] ＋/−ズームボタン (長押しで連続)
   window.addEventListener('resize', onResize);
   animate();
   if (DEBUG) {
@@ -1443,7 +1510,30 @@ function initThree() {
         handleClick(ev);
         return info ? { kind: info.kind, doorId: info.doorId || null,
                         info: typeof info.info === 'string' ? info.info.slice(0, 40) : 'obj' } : null;
-      }
+      },
+      ui: function () {
+        // ★v2.5 検証用: ドラッグ/選択/シート/ハンドル/長押しの内部状態スナップショット
+        const sh = document.getElementById('itemSheet');
+        const mv = document.getElementById('gizmoMove');
+        return {
+          mode: mode, selected: selectedItemId, dragging: drag ? drag.itemId : null,
+          controlsEnabled: controls ? controls.enabled : null,
+          lpPending: !!lpTimer, activePtrs: activePtrs,
+          sheetOpen: sh.classList.contains('open'), sheetPeek: sh.classList.contains('peek'),
+          gizmoShown: mv.classList.contains('show'),
+          gizmoPos: { left: mv.style.left, top: mv.style.top },
+          pixelRatio: renderer ? renderer.getPixelRatio() : null, coarse: IS_COARSE
+        };
+      },
+      pick: function (fx, fy, touch) {
+        // ★v2.5[3] 検証用: 判定拡大の有無を比較できる pick (touch=true でタッチ扱い)
+        const r = renderer.domElement.getBoundingClientRect();
+        const ev = { clientX: r.left + r.width * fx, clientY: r.top + r.height * fy,
+                     pointerType: touch ? 'touch' : 'mouse' };
+        return pickItem(ev);
+      },
+      selectItem: function (id) { select(id); return selectedItemId; },
+      zoom: function (f) { const d0 = camera.position.distanceTo(controls.target); zoomBy(f); return { before: d0, after: camera.position.distanceTo(controls.target) }; }
     };
   }
 }
@@ -1453,8 +1543,38 @@ function animate() {
   if (controls) controls.update();
   updateWallGhost();   // ★v1.9 手前壁の自動半透明化 (全体ビュー・部屋ビュー共通)
   updateDimLabel();
+  updateGizmos();      // ★v2.5[2] 選択中家具の移動⊕/回転↻ハンドル追従
   updateDrawerLabels();   // ★v2.3[9] 開いた引き出しの「残り幅」ラベル
   if (renderer) renderer.render(scene, camera);
+}
+
+// ★v2.5[7] ＋/−ズームボタン: タップ=1段 / 長押し=連続 (ピンチが苦手な場面用)
+function zoomBy(f) {
+  if (!camera || !controls) return;
+  const off = camera.position.clone().sub(controls.target);
+  const d = Math.max(controls.minDistance, Math.min(controls.maxDistance, off.length() * f));
+  off.setLength(d);
+  camera.position.copy(controls.target).add(off);
+  controls.update();
+}
+let zoomHold = null;
+function bindZoomButtons() {
+  const bind = function (id, f) {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      zoomBy(f);
+      clearInterval(zoomHold);
+      zoomHold = setInterval(function () { zoomBy(Math.pow(f, 0.4)); }, 60);   // 長押しで連続ズーム
+    });
+    const stop = function () { clearInterval(zoomHold); zoomHold = null; };
+    b.addEventListener('pointerup', stop);
+    b.addEventListener('pointercancel', stop);
+    b.addEventListener('pointerleave', stop);
+  };
+  bind('zoomInBtn', 0.8);
+  bind('zoomOutBtn', 1.25);
 }
 
 // ═══════════════ 家具メッシュ (★v1.8 type別パラメトリック簡易モデル) ═══════════════
@@ -2056,6 +2176,16 @@ function select(id) {
   if (m) { selHelper = new THREE.BoxHelper(m, 0xff8fab); scene.add(selHelper); }
   openItemSheet();
 }
+// ★v2.5[1] 長押しで掴んだ瞬間の軽いハイライト (選択枠を一瞬明るく)
+let flashTimer = null;
+function flashSelHelper() {
+  if (!selHelper || !selHelper.material) return;
+  selHelper.material.color.setHex(0xffd54f);
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(function () {
+    if (selHelper && selHelper.material) selHelper.material.color.setHex(0xff8fab);
+  }, 450);
+}
 function deselect() {
   selectedItemId = null;
   if (selHelper) { scene.remove(selHelper); selHelper = null; }
@@ -2138,14 +2268,58 @@ function openItemSheet() {
     '<button class="btn-secondary" onclick="duplicateItem()">⧉ 複製</button>' +
     '<button class="btn-danger" onclick="deleteItem()">🗑 削除</button>' +
     '</div>';
-  document.getElementById('itemSheet').classList.add('open');
+  // ★v2.5[5] スマホ (粗ポインタ) は折りたたみ (peek) で開き 3D を隠さない。既に開いていれば状態維持
+  const sh = document.getElementById('itemSheet');
+  const wasOpen = sh.classList.contains('open');
+  const wasPeek = sh.classList.contains('peek');
+  sh.classList.add('open');
+  sh.classList.toggle('peek', wasOpen ? wasPeek : IS_COARSE);
+  document.getElementById('itemPeekTitle').textContent = '🛋 ' + (it.name || '家具');
+  document.body.classList.add('itemsheet-open');
   document.getElementById('fab').classList.add('hidden');
 }
 function closeItemSheetFn() {
-  document.getElementById('itemSheet').classList.remove('open');
+  const sh = document.getElementById('itemSheet');
+  sh.classList.remove('open');
+  sh.classList.remove('peek');
+  document.body.classList.remove('itemsheet-open');
   document.getElementById('fab').classList.toggle('hidden', currentRoom === 'all');
 }
 window.closeItemSheet = closeItemSheetFn;
+// ★v2.5[5] peek ⇔ 全開 切替 (タイトルタップ / ⌃⌄ボタン / ヘッダ・バーの上下スワイプ)
+window.expandItemSheet = function () {
+  document.getElementById('itemSheet').classList.remove('peek');
+};
+window.collapseItemSheet = function () {
+  const sh = document.getElementById('itemSheet');
+  if (sh.classList.contains('open')) sh.classList.add('peek');
+};
+function bindSheetSwipe() {
+  const sh = document.getElementById('itemSheet');
+  let sw = null;
+  sh.addEventListener('pointerdown', function (e) {
+    if (!isTouchEvent(e)) return;
+    // 入力・ボタン上からのスワイプは無視 (スクロール/操作優先)
+    const tag = (e.target.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+    const inHeader = !!e.target.closest('#itemSheetHeader, #itemPeekBar');
+    if (!inHeader) return;   // 本文スクロールと競合しないようヘッダ/バー起点のみ
+    sw = { y: e.clientY, done: false };
+  });
+  sh.addEventListener('pointermove', function (e) {
+    if (!sw || sw.done || !isTouchEvent(e)) return;
+    const dy = e.clientY - sw.y;
+    if (dy < -28) { sw.done = true; window.expandItemSheet(); }        // 上スワイプ → 全開
+    else if (dy > 28) {                                                 // 下スワイプ → 折りたたみ/閉じる
+      sw.done = true;
+      if (sh.classList.contains('peek')) deselect();
+      else window.collapseItemSheet();
+    }
+  });
+  const swEnd = function () { sw = null; };
+  sh.addEventListener('pointerup', swEnd);
+  sh.addEventListener('pointercancel', swEnd);
+}
 
 window.updItem = function (field, val) {
   const it = workItems[selectedItemId];
@@ -2163,7 +2337,10 @@ window.updItem = function (field, val) {
   }
   const m = furnMeshes[selectedItemId];
   if (m) syncItemMesh(m, it);
-  if (field === 'name') document.getElementById('itemSheetTitle').textContent = '🛋 ' + (it.name || '家具');
+  if (field === 'name') {
+    document.getElementById('itemSheetTitle').textContent = '🛋 ' + (it.name || '家具');
+    document.getElementById('itemPeekTitle').textContent = '🛋 ' + (it.name || '家具');   // ★v2.5[5]
+  }
   markDirty();
 };
 // ★v2.0 カラーバリエーション選択 (スウォッチタップ)
@@ -2254,30 +2431,114 @@ function genItemId() { return 'i' + Date.now().toString(36) + Math.random().toSt
 
 // ═══════════════ 寸法ラベル (選択中家具の上に W×D×H) ═══════════════
 const projV = new THREE.Vector3();
+// ★v2.5[9] フレーム毎の DOM 書き込みは値が変わった時のみ (モバイル負荷軽減)
+const dimCache = { show: null, l: null, t: null, txt: null };
 function updateDimLabel() {
   const el = document.getElementById('dimLabel');
   if (!el) return;
   const it = selectedItemId ? workItems[selectedItemId] : null;
-  if (!it || !renderer) { el.style.display = 'none'; return; }
-  projV.set(it.x, (Number(it.y) || 0) + (Number(it.h) || 0) + 14, it.z).project(camera);
-  if (projV.z > 1) { el.style.display = 'none'; return; }
-  el.style.display = 'block';
-  el.style.left = ((projV.x + 1) / 2 * renderer.domElement.clientWidth) + 'px';
-  el.style.top = ((-projV.y + 1) / 2 * renderer.domElement.clientHeight) + 'px';
-  el.textContent = 'W' + it.w + ' × D' + it.d + ' × H' + it.h;
+  let show = false, l = 0, t = 0, txt = '';
+  if (it && renderer) {
+    projV.set(it.x, (Number(it.y) || 0) + (Number(it.h) || 0) + 14, it.z).project(camera);
+    if (projV.z <= 1) {
+      show = true;
+      l = Math.round((projV.x + 1) / 2 * renderer.domElement.clientWidth);
+      t = Math.round((-projV.y + 1) / 2 * renderer.domElement.clientHeight);
+      txt = 'W' + it.w + ' × D' + it.d + ' × H' + it.h;
+    }
+  }
+  if (show !== dimCache.show) { el.style.display = show ? 'block' : 'none'; dimCache.show = show; }
+  if (!show) return;
+  if (l !== dimCache.l) { el.style.left = l + 'px'; dimCache.l = l; }
+  if (t !== dimCache.t) { el.style.top = t + 'px'; dimCache.t = t; }
+  if (txt !== dimCache.txt) { el.textContent = txt; dimCache.txt = txt; }
+}
+
+// ═══════════════ ★v2.5[2] 選択中家具の操作ハンドル (⊕移動 / ↻回転) ═══════════════
+// 3D内ではなくスクリーン固定サイズの DOM ボタンを足元位置に投影配置 → カメラ距離によらず44px以上を保証
+const gizmoV = new THREE.Vector3();
+const gizmoCache = { show: null, mx: null, my: null };
+let gizmoPtr = null;   // 移動ハンドルドラッグ中の pointerId
+function updateGizmos() {
+  const mv = document.getElementById('gizmoMove');
+  const rt = document.getElementById('gizmoRot');
+  if (!mv || !rt) return;
+  const it = (selectedItemId && currentRoom !== 'all') ? workItems[selectedItemId] : null;
+  let show = false, mx = 0, my = 0;
+  if (it && renderer) {
+    // 足元 (床面) に投影。手前下方向に少しオフセットして家具本体と重ねない
+    gizmoV.set(it.x, Math.max(0, Number(it.y) || 0), it.z).project(camera);
+    if (gizmoV.z <= 1) {
+      show = true;
+      mx = Math.round((gizmoV.x + 1) / 2 * renderer.domElement.clientWidth);
+      my = Math.round((-gizmoV.y + 1) / 2 * renderer.domElement.clientHeight) + 34;
+      const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
+      mx = Math.max(28, Math.min(mx, w - 88));   // 画面外・回転ハンドルのはみ出し防止
+      my = Math.max(28, Math.min(my, h - 30));
+    }
+  }
+  if (show !== gizmoCache.show) {
+    mv.classList.toggle('show', show);
+    rt.classList.toggle('show', show);
+    gizmoCache.show = show;
+  }
+  if (!show) return;
+  if (mx !== gizmoCache.mx || my !== gizmoCache.my) {
+    mv.style.left = mx + 'px'; mv.style.top = my + 'px';
+    rt.style.left = (mx + 60) + 'px'; rt.style.top = my + 'px';
+    gizmoCache.mx = mx; gizmoCache.my = my;
+  }
+}
+function bindGizmos() {
+  const mv = document.getElementById('gizmoMove');
+  const rt = document.getElementById('gizmoRot');
+  if (!mv || !rt) return;
+  mv.addEventListener('pointerdown', function (e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (!selectedItemId || currentRoom === 'all') return;
+    const it = workItems[selectedItemId];
+    const p = floorPoint(e);
+    if (!it || !p) return;
+    e.preventDefault();
+    try { mv.setPointerCapture(e.pointerId); } catch (err) {}
+    drag = beginDrag(selectedItemId, it, p);
+    controls.enabled = false;
+    gizmoPtr = e.pointerId;
+    toast('移動中: ドラッグで配置、離すと確定');
+  });
+  mv.addEventListener('pointermove', function (e) {
+    if (gizmoPtr === null || e.pointerId !== gizmoPtr) return;
+    moveDragTo(e);
+  });
+  const gzEnd = function (e) {
+    if (gizmoPtr === null || e.pointerId !== gizmoPtr) return;
+    gizmoPtr = null;
+    finishDrag();
+  };
+  mv.addEventListener('pointerup', gzEnd);
+  mv.addEventListener('pointercancel', gzEnd);
+  rt.addEventListener('click', function () { window.rotateItem(); });
 }
 
 // ═══════════════ ポインタ操作 (視点/配置・ドラッグ移動・ツールチップ) ═══════════════
 const raycaster = new THREE.Raycaster();
+// ★v2.5[3] 細線・点要素の raycast 許容を拡大 (タッチでの取りこぼし対策)
+raycaster.params.Line = Object.assign({}, raycaster.params.Line, { threshold: 6 });
+raycaster.params.Points = Object.assign({}, raycaster.params.Points, { threshold: 8 });
 const ndc = new THREE.Vector2();
 const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 let drag = null;      // { itemId, sx, sz, px, pz }
 let downInfo = null;  // クリック判定用
 
-function setNdc(e) {
+function setNdc(e, dx, dy) {
   const r = renderer.domElement.getBoundingClientRect();
-  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ndc.set((((e.clientX + (dx || 0)) - r.left) / r.width) * 2 - 1,
+          -(((e.clientY + (dy || 0)) - r.top) / r.height) * 2 + 1);
 }
+// ★v2.5[3] タッチ時はタップ座標±12px程度の複数レイで当たり判定を拡大 (小物が選びにくい問題の解消)
+const TOUCH_PICK_OFFS = [[0, 0], [12, 0], [-12, 0], [0, 12], [0, -12], [9, 9], [-9, 9], [9, -9], [-9, -9]];
+const MOUSE_PICK_OFFS = [[0, 0]];
+function pickOffsets(e) { return isTouchEvent(e) ? TOUCH_PICK_OFFS : MOUSE_PICK_OFFS; }
 function floorPoint(e) {
   setNdc(e);
   raycaster.setFromCamera(ndc, camera);
@@ -2285,32 +2546,38 @@ function floorPoint(e) {
   return raycaster.ray.intersectPlane(floorPlane, p) ? p : null;
 }
 function pickItem(e) {
-  setNdc(e);
-  raycaster.setFromCamera(ndc, camera);
   // ★v1.8 家具は Group (子メッシュ群) なので再帰 raycast → 親をたどって itemId 解決
   const meshes = Object.keys(furnMeshes).map(function (k) { return furnMeshes[k]; });
-  const hits = raycaster.intersectObjects(meshes, true);
-  for (let i = 0; i < hits.length; i++) {
-    if (hits[i].object.visible === false) continue;   // ★v2.3 閉じている引き出しボックス等は無視
-    let o = hits[i].object;
-    while (o && !o.userData.itemId) o = o.parent;
-    if (o && o.userData.itemId) return o.userData.itemId;
+  const offs = pickOffsets(e);
+  for (let oi = 0; oi < offs.length; oi++) {
+    setNdc(e, offs[oi][0], offs[oi][1]);
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(meshes, true);
+    for (let i = 0; i < hits.length; i++) {
+      if (hits[i].object.visible === false) continue;   // ★v2.3 閉じている引き出しボックス等は無視
+      let o = hits[i].object;
+      while (o && !o.userData.itemId) o = o.parent;
+      if (o && o.userData.itemId) return o.userData.itemId;
+    }
   }
   return null;
 }
 function pickInfo(e) {
-  setNdc(e);
-  raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(pickables, false);
   const focusDk = currentRoom === 'all' ? null : dataKeyOf(currentRoom);
-  for (let i = 0; i < hits.length; i++) {
-    const obj = hits[i].object;
-    if (obj.visible === false) continue;   // ★v2.3 閉じている引き出しボックス等は無視
-    const ud = obj.userData;
-    if (ud.kind === 'outlet' && !outletsVisible) continue;
-    // ★v2.2[8] ドアは両面 (どの部屋ビューでも) クリック可。他の淡色化中の他部屋設備は拾わない
-    if (focusDk && !ud.doorId && obj.parent && obj.parent.name && obj.parent.name !== focusDk) continue;
-    return ud;
+  const offs = pickOffsets(e);   // ★v2.5[3][8] ドア・コンセント等もタッチは判定拡大
+  for (let oi = 0; oi < offs.length; oi++) {
+    setNdc(e, offs[oi][0], offs[oi][1]);
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(pickables, false);
+    for (let i = 0; i < hits.length; i++) {
+      const obj = hits[i].object;
+      if (obj.visible === false) continue;   // ★v2.3 閉じている引き出しボックス等は無視
+      const ud = obj.userData;
+      if (ud.kind === 'outlet' && !outletsVisible) continue;
+      // ★v2.2[8] ドアは両面 (どの部屋ビューでも) クリック可。他の淡色化中の他部屋設備は拾わない
+      if (focusDk && !ud.doorId && obj.parent && obj.parent.name && obj.parent.name !== focusDk) continue;
+      return ud;
+    }
   }
   return null;
 }
@@ -2373,14 +2640,47 @@ function resolveDragPos(drag, it) {
   }
 }
 
+// ★v2.5[1] 視点モードのままの長押し掴み (タッチ ~250ms 静止で家具をつかんで移動開始)
+let lpTimer = null, lpTarget = null;
+let activePtrs = 0;   // マルチタッチ (ピンチ) 検出用
+function cancelLongPress() {
+  if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+  lpTarget = null;
+}
+// ドラッグ中の位置更新 (canvas / 移動ハンドル 共通)
+function moveDragTo(e) {
+  if (!drag) return;
+  const p = floorPoint(e);
+  if (!p) return;
+  const it = workItems[drag.itemId];
+  if (!it) return;
+  it.x = drag.sx + (p.x - drag.px);
+  it.z = drag.sz + (p.z - drag.pz);
+  clampItem(it);
+  resolveDragPos(drag, it);   // ★v1.9 壁ポリゴン/設備は滑らせ、家具同士は載せられるなら y スナップ
+  const m = furnMeshes[drag.itemId];
+  if (m) syncItemMesh(m, it);
+}
+function finishDrag() {
+  if (drag) { markDirty(); drag = null; }
+  if (controls) controls.enabled = true;
+}
+
 function bindPointer() {
   const el = renderer.domElement;
   el.addEventListener('pointerdown', function (e) {
     if (e.button !== undefined && e.button !== 0) return;
-    downInfo = { x: e.clientX, y: e.clientY, moved: false };
+    activePtrs++;
+    cancelLongPress();
+    if (activePtrs > 1) {                 // ★v2.5[1] 2本目の指=ピンチ意図 → 掴みを終了して視点操作へ
+      if (drag) finishDrag();
+      downInfo = null;
+      return;
+    }
+    downInfo = { x: e.clientX, y: e.clientY, moved: false, touch: isTouchEvent(e), lp: false };
     if (currentRoom === 'all') return;
     const hitId = pickItem(e);
-    const isMouse = e.pointerType === 'mouse';
+    const isMouse = !downInfo.touch;
     if (hitId && workItems[hitId] && (isMouse || mode === 'place')) {
       if (hitId !== selectedItemId) select(hitId);
       const p = floorPoint(e);
@@ -2390,25 +2690,45 @@ function bindPointer() {
       const p = floorPoint(e);
       const it = workItems[selectedItemId];
       if (p && it) { drag = beginDrag(selectedItemId, it, p); controls.enabled = false; }
+    } else if (hitId && workItems[hitId] && downInfo.touch && mode === 'view') {
+      // ★v2.5[1] 視点モードのタッチ: 家具の上で ~250ms 静止 → 掴んで移動開始 (モード切替不要)
+      lpTarget = { id: hitId, clientX: e.clientX, clientY: e.clientY, pointerType: e.pointerType };
+      lpTimer = setTimeout(function () {
+        lpTimer = null;
+        if (!downInfo || downInfo.moved || !lpTarget || drag) { lpTarget = null; return; }
+        const it = workItems[lpTarget.id];
+        const p = floorPoint(lpTarget);
+        if (it && p) {
+          if (lpTarget.id !== selectedItemId) select(lpTarget.id);
+          drag = beginDrag(lpTarget.id, it, p);
+          controls.enabled = false;
+          downInfo.lp = true;
+          flashSelHelper();   // 掴んだ瞬間の軽いハイライト
+          toast('移動中: 指をずらして配置、離すと確定');
+          if (navigator.vibrate) { try { navigator.vibrate(15); } catch (err) {} }
+        }
+        lpTarget = null;
+      }, 250);
     }
   });
   el.addEventListener('pointermove', function (e) {
-    if (downInfo && (Math.abs(e.clientX - downInfo.x) > 6 || Math.abs(e.clientY - downInfo.y) > 6)) downInfo.moved = true;
-    if (!drag) return;
-    const p = floorPoint(e);
-    if (!p) return;
-    const it = workItems[drag.itemId];
-    if (!it) return;
-    it.x = drag.sx + (p.x - drag.px);
-    it.z = drag.sz + (p.z - drag.pz);
-    clampItem(it);
-    resolveDragPos(drag, it);   // ★v1.9 壁ポリゴン/設備は滑らせ、家具同士は載せられるなら y スナップ
-    const m = furnMeshes[drag.itemId];
-    if (m) syncItemMesh(m, it);
+    // ★v2.5[4] タッチはドラッグ開始閾値 6px→12px (誤タップでカメラ微動→選択にならない問題)
+    if (downInfo) {
+      const th = downInfo.touch ? 12 : 6;
+      if (Math.abs(e.clientX - downInfo.x) > th || Math.abs(e.clientY - downInfo.y) > th) {
+        downInfo.moved = true;
+        if (lpTimer && !drag) cancelLongPress();   // 指が動いたら長押し掴みは不成立
+      }
+    }
+    moveDragTo(e);
   });
   const endDrag = function (e) {
-    if (drag) { markDirty(); drag = null; controls.enabled = true; }
-    if (downInfo && !downInfo.moved && e.type === 'pointerup') handleClick(e);
+    activePtrs = Math.max(0, activePtrs - 1);
+    cancelLongPress();
+    const wasLp = downInfo && downInfo.lp;
+    if (drag) finishDrag();
+    // 長押し掴みで離しただけ (moved=false) の時はタップ扱いにしない (引き出し誤開閉防止)
+    if (downInfo && !downInfo.moved && !wasLp && e.type === 'pointerup') handleClick(e);
     downInfo = null;
   };
   el.addEventListener('pointerup', endDrag);
@@ -2417,17 +2737,19 @@ function bindPointer() {
 
 // ★v2.3[9] 家具アイテム内の引き出しクリックプレート判定 (最前ヒットのメッシュ chain から drawerId を拾う)
 function pickItemDrawer(e) {
-  setNdc(e);
-  raycaster.setFromCamera(ndc, camera);
   const meshes = Object.keys(furnMeshes).map(function (k) { return furnMeshes[k]; });
-  const hits = raycaster.intersectObjects(meshes, true);
-  if (!hits.length) return null;
-  let near = null;   // 最前の可視ヒット +3cm 以内にプレートがあれば引き出しクリックとみなす
-  for (let i = 0; i < hits.length; i++) {
-    if (hits[i].object.visible === false) continue;
-    if (near === null) near = hits[i].distance + 3;
-    if (hits[i].distance > near) break;
-    if (hits[i].object.userData.drawerId) return hits[i].object.userData.drawerId;
+  const offs = pickOffsets(e);   // ★v2.5[3] タッチは引き出しプレートも判定拡大
+  for (let oi = 0; oi < offs.length; oi++) {
+    setNdc(e, offs[oi][0], offs[oi][1]);
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(meshes, true);
+    let near = null;   // 最前の可視ヒット +3cm 以内にプレートがあれば引き出しクリックとみなす
+    for (let i = 0; i < hits.length; i++) {
+      if (hits[i].object.visible === false) continue;
+      if (near === null) near = hits[i].distance + 3;
+      if (hits[i].distance > near) break;
+      if (hits[i].object.userData.drawerId) return hits[i].object.userData.drawerId;
+    }
   }
   return null;
 }
@@ -2478,7 +2800,7 @@ window.setMode = function (m) {
   document.getElementById('modeViewBtn').classList.toggle('active', m === 'view');
   document.getElementById('modePlaceBtn').classList.toggle('active', m === 'place');
   if (controls) controls.enableRotate = (m === 'view');
-  toast(m === 'view' ? '視点モード: ドラッグで回転・ピンチでズーム' : '配置モード: ドラッグで選択中の家具を移動');
+  toast(m === 'view' ? '視点モード: ドラッグで回転 / 家具は長押しで掴んで移動' : '配置モード: ドラッグで選択中の家具を移動');
 };
 window.toggleOutlets = function () {
   outletsVisible = !outletsVisible;
@@ -2571,7 +2893,7 @@ function applyRoomView() {
   document.getElementById('fab').classList.toggle('hidden', currentRoom === 'all');
   setHint(currentRoom === 'all'
     ? '全体ビュー: 各部屋の選択中案を合成表示 (編集は部屋タブから)'
-    : (ROOM_LABEL[currentRoom] || '') + ' ｜ 視点=カメラ操作 / 配置=家具ドラッグ');
+    : (ROOM_LABEL[currentRoom] || '') + ' ｜ タップ=選択 / 長押し=家具を掴んで移動');
   window.setCamera(camPreset === 'eye' && currentRoom === 'all' ? 'iso' : camPreset);
 }
 
@@ -2843,6 +3165,8 @@ async function addItem(base, zone) {
   itemMeshBuild(id, it);
   markDirty();
   select(id);
+  // ★v2.5[6] 追加直後の導線: シートは閉じ済み・選択済み (peek+ハンドル表示)。掴み方をトースト案内
+  toast('⊕ドラッグで移動 / 家具の長押しでも掴めます');
 }
 
 window.addFromCatalog = function (cid) {
