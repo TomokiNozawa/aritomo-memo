@@ -2316,7 +2316,11 @@ function bedUnder(selfId, it) {
 }
 // ★v1.9 デスク載せスナップ: XZ で重なる他アイテムのうち、自分以上の footprint を持つものの最高天面。
 //        null = 支え無し (床置き)。モニター/モニターアームをデスク天面に載せる動線用。
+// ★v3.1 天面載せスナップはホワイトリスト制: monitor / monitorarm のみ (マットレス→ベッドは bedUnder 特例)。
+//        チェア等の大型家具がテーブルへのドラッグで天面に持ち上がる事故の防止 (床置き固定)
+const TOP_STACK_TYPES = { monitor: 1, monitorarm: 1 };
 function supportTopFor(selfId, it) {
+  if (!TOP_STACK_TYPES[itemTypeOf(it)]) return null;   // ★v3.1 ホワイトリスト外は常に床置き
   const a = itemAabb(it);
   const myArea = (a.maxX - a.minX) * (a.maxZ - a.minZ);
   let top = null;
@@ -2342,10 +2346,58 @@ function itemAabb(it) {
   return { minX: it.x - hx, maxX: it.x + hx, minZ: it.z - hz, maxZ: it.z + hz,
            minY: y0, maxY: y0 + (Number(it.h) || 1) };
 }
+// ★v3.1 チェア×テーブル/デスクの特例衝突 (チェアをテーブル下にしまえるマルチボックス近似):
+//  - チェア = {座面箱 (底面〜50cm・全footprint), 背もたれ箱 (背面側 幅12cmストリップ・全高)}
+//  - テーブル/デスク = {天板スラブ (上端4cm・全footprint), 脚4本 (4隅 6cm角・全高)}
+//  → 座面は天板下に自由に入り、背もたれがテーブル縁 (天板スラブ) に当たる位置で止まる。
+//    脚とはチェア全体で衝突 (脚の間にしか入らない)。rotY 90度刻みに追従。
+function isChairItem(it) { return itemTypeOf(it) === 'chair'; }
+function isTableItem(it) { const t = itemTypeOf(it); return t === 'table' || t === 'desk'; }
+const CHAIR_SEAT_TOP = 50;    // 座面部分の上端 (座面高46.5+α)
+const CHAIR_BACK_D = 12;      // 背もたれストリップ奥行
+const TABLE_SLAB_T = 4;       // 天板スラブ厚
+const TABLE_LEG_SZ = 6;       // 脚の角寸法
+function chairBoxes(it) {
+  const a = itemAabb(it);
+  const seat = { minX: a.minX, maxX: a.maxX, minZ: a.minZ, maxZ: a.maxZ,
+                 minY: a.minY, maxY: Math.min(a.maxY, a.minY + CHAIR_SEAT_TOP) };
+  // 背もたれはローカル -z 側 (buildItemParts のチェアモデル準拠)。rotY 90度刻みで世界座標の面が回る
+  const rot = ((Math.round((it.rotY || 0) / 90) * 90) % 360 + 360) % 360;
+  const back = { minX: a.minX, maxX: a.maxX, minZ: a.minZ, maxZ: a.maxZ, minY: a.minY, maxY: a.maxY };
+  if (rot === 0) back.maxZ = Math.min(a.maxZ, a.minZ + CHAIR_BACK_D);        // 背=北 (minZ)
+  else if (rot === 90) back.minX = Math.max(a.minX, a.maxX - CHAIR_BACK_D);  // 背=東 (maxX)
+  else if (rot === 180) back.minZ = Math.max(a.minZ, a.maxZ - CHAIR_BACK_D); // 背=南 (maxZ)
+  else back.maxX = Math.min(a.maxX, a.minX + CHAIR_BACK_D);                  // 背=西 (minX)
+  return [seat, back];
+}
+function tableBoxes(it) {
+  const a = itemAabb(it);
+  const L = TABLE_LEG_SZ;
+  return [
+    { minX: a.minX, maxX: a.maxX, minZ: a.minZ, maxZ: a.maxZ,
+      minY: Math.max(a.minY, a.maxY - TABLE_SLAB_T), maxY: a.maxY },                          // 天板スラブ
+    { minX: a.minX, maxX: a.minX + L, minZ: a.minZ, maxZ: a.minZ + L, minY: a.minY, maxY: a.maxY },
+    { minX: a.maxX - L, maxX: a.maxX, minZ: a.minZ, maxZ: a.minZ + L, minY: a.minY, maxY: a.maxY },
+    { minX: a.minX, maxX: a.minX + L, minZ: a.maxZ - L, maxZ: a.maxZ, minY: a.minY, maxY: a.maxY },
+    { minX: a.maxX - L, maxX: a.maxX, minZ: a.maxZ - L, maxZ: a.maxZ, minY: a.minY, maxY: a.maxY }
+  ];
+}
+function boxesOverlap(a, b) {
+  const EPS = 0.5;   // 接地・接触は許容 (pairCollides と同一)
+  return a.minX < b.maxX - EPS && a.maxX > b.minX + EPS &&
+         a.minZ < b.maxZ - EPS && a.maxZ > b.minZ + EPS &&
+         a.minY < b.maxY - EPS && a.maxY > b.minY + EPS;
+}
 // ★v2.2[6] 1ペア衝突判定を関数化 (免除セット収集と共用)
 function pairCollides(it, ot) {
   // ★v2.0 マットレス×ベッドは重なり許容 (床板面スナップで載せる。はみ出しもブロックしない)
   if ((isMattressItem(it) && isBedItem(ot)) || (isBedItem(it) && isMattressItem(ot))) return false;
+  // ★v3.1 チェア×テーブル/デスクはマルチボックス近似 (チェア×チェア等はこの分岐に入らず従来AABB)
+  if ((isChairItem(it) && isTableItem(ot)) || (isTableItem(it) && isChairItem(ot))) {
+    const ch = isChairItem(it) ? it : ot, tb = isChairItem(it) ? ot : it;
+    const cbs = chairBoxes(ch), tbs = tableBoxes(tb);
+    return cbs.some(function (c) { return tbs.some(function (t) { return boxesOverlap(c, t); }); });
+  }
   const a = itemAabb(it), b = itemAabb(ot);
   const EPS = 0.5;   // 接地・接触は許容
   return a.minX < b.maxX - EPS && a.maxX > b.minX + EPS &&
@@ -2805,6 +2857,13 @@ function pickInfo(e) {
 
 // ★v1.9 ドラッグ開始情報: y 自動管理 (床置き or 天面載せ状態なら、支えを離れた時に床へ戻す)
 function beginDrag(itemId, it, p) {
+  // ★v3.1 天面載せホワイトリスト外の床置き家具が旧データ等で浮いていたら、掴んだ時点で着地させる
+  //        (overlapState はこの後に取るので、着地で生じた重なりは分離まで免除される)
+  if (!TOP_STACK_TYPES[itemTypeOf(it)] && !isMattressItem(it) && (Number(it.y) || 0) !== 0) {
+    it.y = 0;
+    const gm = furnMeshes[itemId];
+    if (gm) syncItemMesh(gm, it);
+  }
   const sup0 = supportTopFor(itemId, it);
   const bed0 = bedUnder(itemId, it);   // ★v2.0 ベッド床板面に載っている状態も autoY 対象
   const y0 = Number(it.y) || 0;
