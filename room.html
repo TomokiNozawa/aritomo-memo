@@ -3103,16 +3103,64 @@ function buildItemParts(g, it) {
     cyl(R * 0.86, R, 0, yFil, base);                                  // 底の大きいフィレット (接地φ16.5 → φ19.2)
     cyl(R, R, yFil, ySeam - yFil, base);                              // ストレート円筒 (上すぼまり無し)
     P(R * 2 * 0.995, 0.25, 0.25, 0, ySeam, 0, base.clone().multiplyScalar(0.88));   // 面一の合わせ目 (段差なし)
-    cyl(R, R, ySeam, h - ySeam, base, 36, true);                      // フタ外周バンド (天面は塞がない = openEnded)
+    const lidBand = cyl(R, R, ySeam, h - ySeam, base, 36, true);      // フタ外周バンド (天面は塞がない = openEnded)
     // フタ内側: リムから内側へ下降するファンネル (投入口 φ9.8 = 外径の51%)。ここが天面の見えになる
     const inR = R * 0.51, funH = 2.6 * kY;
-    cyl(R * 0.985, inR, h - funH, funH, base.clone().multiplyScalar(0.86), 36, true);
+    const lidFun = cyl(R * 0.985, inR, h - funH, funH, base.clone().multiplyScalar(0.86), 36, true);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(R * 0.985, Math.max(R * 0.022, 0.12), 6, 36),
       new THREE.MeshLambertMaterial({ color: base }));                // 薄いシャープなリム (巻き返し無し)
     rim.rotation.x = Math.PI / 2;
     rim.position.set(0, h - 0.1, 0);
     g.add(rim);
     cyl(inR * 0.97, inR * 0.97, h - funH - 3.5 * kY, 3.5 * kY, 0x121214, 28);   // 投入口の奥 (暗い空洞)
+    // ★v6.2 pist のフタは「落とし込み式のドーナツ型」= ヒンジ・可動部ゼロ・投入口は常時開口。
+    //   よって 開閉 ではなく **持ち上げて外す** 表現にする (ゴミ袋交換の動作)。
+    //   外すのに必要な上方クリアランス = フタのスカート分 + 手の逃げ = 6cm として、上方障害物を判定する。
+    const iid = g.userData.itemId;
+    if (iid) {
+      const LIFT = 6 * kY;
+      const offBand = cyl(R, R, ySeam + LIFT, h - ySeam, base, 36, true);
+      const offFun = cyl(R * 0.985, inR, h - funH + LIFT, funH, base.clone().multiplyScalar(0.86), 36, true);
+      const offRim = new THREE.Mesh(new THREE.TorusGeometry(R * 0.985, Math.max(R * 0.022, 0.12), 6, 36),
+        new THREE.MeshLambertMaterial({ color: base }));
+      offRim.rotation.x = Math.PI / 2;
+      offRim.position.set(0, h - 0.1 + LIFT, 0);
+      g.add(offRim);
+      const openMouth = cyl(R * 0.93, R * 0.93, ySeam - 3.0 * kY, 3.0 * kY, 0x121214, 28);   // フタを外して見える口
+      const boxes = [offBand, offFun, offRim, openMouth];
+      boxes.forEach(function (m) { m.visible = false; m.userData.drawerBox = true; });
+      const lidId = regDrawer({
+        id: 'i_' + iid + '_lid', label: 'pist のフタ (落とし込み式・外す)', boxes: boxes, depth: 0, pre: '🗑 ',
+        hideOpen: [lidBand, lidFun, rim],
+        rayFn: function () {
+          g.updateMatrixWorld();
+          return { origins: [], dir: new THREE.Vector3(0, 1, 0), exclude: g,
+                   labelPos: g.localToWorld(new THREE.Vector3(0, h + LIFT + 6, 0)) };
+        },
+        lidFn: function () {
+          g.updateMatrixWorld();
+          const y0 = h + 0.2;
+          const r = scanObstacle(g, [
+            g.localToWorld(new THREE.Vector3(0, y0, 0)),
+            g.localToWorld(new THREE.Vector3(R * 0.6, y0, 0)),
+            g.localToWorld(new THREE.Vector3(-R * 0.6, y0, 0))
+          ], new THREE.Vector3(0, 1, 0), 400);
+          const marg = r.dist === null ? null : Math.round((r.dist + 0.2 - LIFT) * 10) / 10;
+          const ok = marg === null || marg >= 0;
+          return {
+            remain: (ok && marg !== null) ? Math.max(marg, 0) : null,
+            label: ok ? (marg === null ? 'フタ着脱OK' : 'フタ着脱OK 余裕' + marg + 'cm') : '⚠フタを抜けません',
+            msg: ok
+              ? 'pist のフタを外しました (落とし込み式・ヒンジなし。着脱に必要な上方 ' + Math.round(LIFT) + 'cm)' +
+                (marg === null ? ' — 上方に障害物なし' : ' — ' + (r.name || '上方の障害物') + 'まで 余裕' + marg + 'cm')
+              : '⚠ 上方の' + (r.name || '障害物') + 'が近く フタを抜けません — 着脱に ' + Math.round(LIFT) +
+                'cm 必要 (' + Math.abs(marg) + 'cm 不足)'
+          };
+        }
+      });
+      lidBand.userData.drawerId = lidFun.userData.drawerId = rim.userData.drawerId = lidId;
+      boxes.forEach(function (m) { m.userData.drawerId = lidId; });
+    }
   } else if (type === 'trash') {
     // ★v5.3 ケユカ 両開きダストボックス L 27L (品番3301207 ホワイト / 旧名 arrots ダストボックスIII_L)。
     //   出典: 公式取扱説明書 PDF の製品図 (寸法線入り三面図) = 最上位一次ソース。
@@ -3142,9 +3190,9 @@ function buildItemParts(g, it) {
     g.add(bodyM);
     P(14.3 * kX, 1.5 * kY, 0.6, 0, 47.25 * kY, td / 2 + 0.1, base.clone().multiplyScalar(0.90));   // 正面の指掛けくぼみ
     // 天面プレート (本体より一回り大きい傘状) + 観音開きのフタ2枚 (幅を中央で2分割・分割線は奥行方向)
-    P(w / 2 - 0.2, plT, d, -(w / 4 + 0.1), yBody + plT / 2, 0, lite);
-    P(w / 2 - 0.2, plT, d, (w / 4 + 0.1), yBody + plT / 2, 0, lite);
-    P(0.35, plT * 1.04, d, 0, yBody + plT / 2, 0, base.clone().multiplyScalar(0.78));   // 中央の分割線 (観音開き)
+    const lidL = P(w / 2 - 0.2, plT, d, -(w / 4 + 0.1), yBody + plT / 2, 0, lite);
+    const lidR = P(w / 2 - 0.2, plT, d, (w / 4 + 0.1), yBody + plT / 2, 0, lite);
+    const lidSeam = P(0.35, plT * 1.04, d, 0, yBody + plT / 2, 0, base.clone().multiplyScalar(0.78));   // 中央の分割線 (観音開き)
     // 背面: 縦チャンネル2本 + スチールリンクロッド2本 (下部中央でU字に繋がる)
     P(2.4 * kX, yBody * 0.95, 1.2, -w * 0.26, yBody * 0.5, -td / 2 - 0.4, base.clone().multiplyScalar(0.92));
     P(2.4 * kX, yBody * 0.95, 1.2, w * 0.26, yBody * 0.5, -td / 2 - 0.4, base.clone().multiplyScalar(0.92));
@@ -3160,6 +3208,66 @@ function buildItemParts(g, it) {
       const hub = CYL(cr * 0.45, 1.75 * kX, sx * (bw / 2 + 0.7 * kX), cr, -bd / 2 + 4.0 * kZ, base);
       hub.rotation.z = Math.PI / 2;
     });
+    // ★v6.2 観音開きフタの クリック開閉 (公式取説PDF の製品図: フタ全開時 高さ60cm・左右外端スパン24cm)。
+    //   ドア/引き出し/洗濯機のふた と同じ流儀 = drawers レジストリ登録・視覚のみ・保存対象外・衝突判定外。
+    //   ヒンジは天面プレートの左右 (中心から10.17cm)。全開で垂直をわずかに越えて外へ倒れ、自由端が
+    //   (x=±12, y=60) に来る → 公式の 60 と 24 を同時に満たす角度 (約100.6°) になる。
+    //   ★開ける時に上方の障害物をレイキャストし、フタ全開60cm が収まるか・余裕何cm かを判定する
+    //     (= 収納のゴミ箱スペースに入れたままフタを開けられるか、という実用判定)。
+    const iid = g.userData.itemId;
+    if (iid) {
+      const LID_H = 60, LID_HINGE = 10.17, LID_OUT = 12;          // 公式値 (外形 H50 / W22 基準の cm)
+      const hingeX = LID_HINGE * kX, yTopP = yBody + plT, Ll = LID_HINGE * kX;
+      const rise = (LID_H - 50) * kY;
+      const phi = Math.PI - Math.asin(Math.min(rise / Math.max(Ll, 0.1), 1));
+      const openLids = [-1, 1].map(function (sx) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(Ll, 0.5), plT, d),
+          new THREE.MeshLambertMaterial({ color: lite }));
+        m.position.set(sx * hingeX - sx * (Ll / 2) * Math.cos(phi), yTopP + (Ll / 2) * Math.sin(phi), 0);
+        m.rotation.z = -sx * phi;
+        g.add(m);
+        return m;
+      });
+      const mouth = P(tw - 2.4 * kX, 1.2 * kY, td - 2.4 * kZ, 0, yBody - 0.6 * kY, 0, 0x1a1a1c);   // 開時に見える投入口
+      const lidBoxes = openLids.concat([mouth]);
+      lidBoxes.forEach(function (m) { m.visible = false; m.userData.drawerBox = true; });
+      const lidId = regDrawer({
+        id: 'i_' + iid + '_lid', label: 'ゴミ箱のフタ (両開き)', boxes: lidBoxes, depth: 0, pre: '🗑 ',
+        hideOpen: [lidL, lidR, lidSeam],
+        rayFn: function () {
+          g.updateMatrixWorld();
+          return { origins: [], dir: new THREE.Vector3(0, 1, 0), exclude: g,
+                   labelPos: g.localToWorld(new THREE.Vector3(0, LID_H * kY + 7, 0)) };
+        },
+        lidFn: function () {
+          g.updateMatrixWorld();
+          const y0 = h + 0.5;
+          const r = scanObstacle(g, [
+            g.localToWorld(new THREE.Vector3(0, y0, 0)),
+            g.localToWorld(new THREE.Vector3(-hingeX * 0.6, y0, d * 0.32)),
+            g.localToWorld(new THREE.Vector3(hingeX * 0.6, y0, -d * 0.32)),
+            g.localToWorld(new THREE.Vector3(-LID_OUT * kX * 0.97, y0, 0)),
+            g.localToWorld(new THREE.Vector3(LID_OUT * kX * 0.97, y0, 0))
+          ], new THREE.Vector3(0, 1, 0), 400);
+          const need = LID_H * kY;                                    // フタ全開に必要な高さ (ゴミ箱底面から)
+          const clr = r.dist === null ? null : (y0 + r.dist);         // 上方障害物の下端 (ゴミ箱底面から)
+          const marg = clr === null ? null : Math.round((clr - need) * 10) / 10;
+          const ok = marg === null || marg >= 0;
+          return {
+            remain: (ok && marg !== null) ? Math.max(marg, 0) : null,
+            label: ok ? (marg === null ? 'フタ全開60cm OK' : 'フタ開OK 余裕' + marg + 'cm') : '⚠フタが当たります',
+            msg: ok
+              ? 'ゴミ箱のフタを開けました (全開時 高さ' + LID_H + 'cm / 左右外端スパン' + (LID_OUT * 2) + 'cm)' +
+                (marg === null ? ' — 上方に障害物なし'
+                               : ' — 上方の' + (r.name || '障害物') + ' (高さ' + Math.round(clr) + 'cm) まで 余裕' + marg + 'cm')
+              : '⚠ フタが' + (r.name || '上方の障害物') + ' (高さ' + Math.round(clr) + 'cm) に当たります — ' +
+                'フタ全開には' + LID_H + 'cm 必要 (' + Math.abs(marg) + 'cm 不足)'
+          };
+        }
+      });
+      lidL.userData.drawerId = lidR.userData.drawerId = lidSeam.userData.drawerId = lidId;
+      lidBoxes.forEach(function (m) { m.userData.drawerId = lidId; });
+    }
   } else if (type === 'router') {
     // ★v5.3 TP-Link Archer AX73 実物準拠モデル。
     //   公式値は外形 272.5 x 147.2 x 49.2mm (= アンテナを除く本体) と壁掛けキーホール芯間 143.9mm のみ。
