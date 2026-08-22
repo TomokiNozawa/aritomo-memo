@@ -1613,6 +1613,53 @@ function initThree() {
         const m = furnMeshes[id]; if (m) syncItemMesh(m, it);
         return { x: it.x, z: it.z, y: it.y };
       },
+      // ★v4.1 検証用: モニターアーム マウント状態 / 先端座標 / VESA高さ操作
+      sel: function (id) { if (id) select(id); else deselect(); return selectedItemId; },
+      drop: function (id, x, z) {   // ★v4.1 実ドラッグと同じ経路 (beginDrag→resolve→finishDrag) で置き直す
+        const it = workItems[id];
+        if (!it) return 'no item';
+        drag = beginDrag(id, it, { x: it.x, z: it.z });
+        it.x = x; it.z = z;
+        clampItem(it);
+        resolveDragPos(drag, it);
+        const m = furnMeshes[id];
+        if (m) syncItemMesh(m, it);
+        finishDrag();
+        return { x: it.x, y: it.y, z: it.z, mounted: !!it.mounted, mountArm: it.mountArm || null };
+      },
+      arms: function () {
+        return Object.keys(workItems).filter(function (k) { return isArmItem(workItems[k]); })
+          .map(function (k) {
+            const ap = armAttachPoint(workItems[k]);
+            return { id: k, name: workItems[k].name, x: workItems[k].x, z: workItems[k].z, y: workItems[k].y,
+                     rotY: workItems[k].rotY || 0, vesaH: armVesaH(workItems[k]),
+                     attach: { x: Math.round(ap.x * 10) / 10, y: Math.round(ap.y * 10) / 10, z: Math.round(ap.z * 10) / 10 },
+                     mounted: mountedCountOf(k) };
+          });
+      },
+      mounts: function () {
+        return Object.keys(workItems).filter(function (k) { return isMonitorItem(workItems[k]); })
+          .map(function (k) {
+            const it = workItems[k];
+            return { id: k, name: it.name, mounted: !!it.mounted, mountArm: it.mountArm || null,
+                     x: it.x, y: it.y, z: it.z, rotY: it.rotY || 0 };
+          });
+      },
+      vesa: function (armId, v) {
+        const prev = selectedItemId;
+        selectedItemId = armId;
+        window.setVesaH(v);
+        selectedItemId = prev;
+        return { vesaH: armVesaH(workItems[armId]), attach: armAttachPoint(workItems[armId]) };
+      },
+      unmount: function (monId) {
+        const prev = selectedItemId;
+        selectedItemId = monId;
+        window.unmountMonitor();
+        selectedItemId = prev;
+        const it = workItems[monId];
+        return { mounted: !!it.mounted, x: it.x, y: it.y, z: it.z };
+      },
       doors: function () {
         // ★v2.2 検証用: ドア一覧 (id / ラベル / 開閉状態)
         return Object.keys(doors).map(function (k) {
@@ -2438,40 +2485,74 @@ function buildItemParts(g, it) {
     //   スタンドベースの幅・奥行・支柱断面・ベゼル幅は公表なしなので写真比率で置く。断定しない)
     //   ・BenQ EX2710 : パネルのみ W614.1 × D64.1 × H382.2mm (カタログ h=41 は昇降最低位置。最高 53.96cm)
     //   ・MSI MAG 342CQR E2 : パネルのみ W808.6 × D119.7 × H364.0mm・曲率 1500R
-    const isCurve = /342CQR|1500R|曲面/.test(nm);
-    const panH = /EX2710/.test(nm) ? Math.min(38.2, h - 2) : (isCurve ? Math.min(36.4, h - 2) : Math.max(h * 0.68, 6));
-    const panT = /EX2710/.test(nm) ? 6.4 : (isCurve ? Math.min(12, d * 0.5) : Math.min(6, d * 0.35));
-    const standH = Math.max(h - panH, 2.4);                               // 昇降最低位置での パネル下端高さ
-    const met = new THREE.Color(0x232327), zBk = -d / 2 + panT / 2 + 1;
-    [-1, 1].forEach(function (s) {                                        // V字 (ブーメラン型) の低い板状ベース ×2
-      const vf = P(w * 0.34, 1.6, d * 0.16, s * w * 0.13, 0.8, d * 0.14, met);
-      vf.rotation.y = -s * 0.50;                                          // 前方 (+z) へ開く浅いV字
-    });
-    P(w * 0.13, 2.0, d * 0.16, 0, 1.0, d * 0.02, met);                    // V字の要 (支柱の足元)
-    P(Math.max(w * 0.075, 4), standH, Math.min(6.5, d * 0.35), 0, standH / 2, d * 0.02, met);  // 角柱支柱
-    P(Math.max(w * 0.10, 6), Math.min(10, panH * 0.3), 1.6, 0, standH + panH * 0.35, zBk - panT / 2 - 0.8, met); // VESA 100×100 マウント部
+    // ★v4.1 mounted=true (モニターアームにマウント中) は 実物同様スタンドを外し、グループ原点 =
+    //        パネル背面中心 (= アームのVESAプレート面) に置く。位置はアーム先端から自動算出される
+    const pdm = monitorPanelDims(it);
+    const isCurve = pdm.curve, panH = pdm.panH, panT = pdm.panT;
+    const armMt = !!(it && it.mounted);
+    const standH = armMt ? 0 : Math.max(h - panH, 2.4);                   // 昇降最低位置での パネル下端高さ
+    const cy = armMt ? 0 : standH + panH / 2;                             // パネル中心の高さ (マウント時=原点)
+    const met = new THREE.Color(0x232327);
+    const zBk = armMt ? (1.0 + panT / 2) : (-d / 2 + panT / 2 + 1);       // パネル中心の z
+    if (armMt) {
+      P(12, 12, 1.0, 0, cy, 0.5, met);                                    // VESA 100×100 プレート (アーム側と接する面)
+      P(3.4, 3.4, 1.4, 0, cy, 1.3, met);                                  // プレート〜パネル背面のボス
+    } else {
+      [-1, 1].forEach(function (s) {                                      // V字 (ブーメラン型) の低い板状ベース ×2
+        const vf = P(w * 0.34, 1.6, d * 0.16, s * w * 0.13, 0.8, d * 0.14, met);
+        vf.rotation.y = -s * 0.50;                                        // 前方 (+z) へ開く浅いV字
+      });
+      P(w * 0.13, 2.0, d * 0.16, 0, 1.0, d * 0.02, met);                  // V字の要 (支柱の足元)
+      P(Math.max(w * 0.075, 4), standH, Math.min(6.5, d * 0.35), 0, standH / 2, d * 0.02, met);  // 角柱支柱
+      P(Math.max(w * 0.10, 6), Math.min(10, panH * 0.3), 1.6, 0, standH + panH * 0.35, zBk - panT / 2 - 0.8, met); // VESA 100×100 マウント部
+    }
     if (isCurve) {                                                        // 1500R 曲面 (幅80.9cmで端が約5.5cm手前に来る)
       const seg = 5, R = 150, sw = w / seg;
       for (let ci = 0; ci < seg; ci++) {
         const ang = (ci - (seg - 1) / 2) * (sw / R);
-        const pn = P(sw + 0.4, panH, panT, Math.sin(ang) * R, standH + panH / 2, zBk + (R - Math.cos(ang) * R), base);
+        const pn = P(sw + 0.4, panH, panT, Math.sin(ang) * R, cy, zBk + (R - Math.cos(ang) * R), base);
         pn.rotation.y = -ang;
-        const sc = P(sw - 0.6, panH - 3, 1, Math.sin(ang) * R, standH + panH / 2, zBk + (R - Math.cos(ang) * R) + panT / 2 + 0.6, 0x2c3542);
+        const sc = P(sw - 0.6, panH - 3, 1, Math.sin(ang) * R, cy, zBk + (R - Math.cos(ang) * R) + panT / 2 + 0.6, 0x2c3542);
         sc.rotation.y = -ang;
       }
     } else {
-      P(w, panH, panT, 0, standH + panH / 2, zBk, base);                  // パネル (平面)
-      P(w - 2.4, panH - 3.2, 1, 0, standH + panH / 2 + 0.6, zBk + panT / 2 + 0.6, 0x2c3542);  // 画面 (下ベゼルのみ約2cm厚)
+      P(w, panH, panT, 0, cy, zBk, base);                                 // パネル (平面)
+      P(w - 2.4, panH - 3.2, 1, 0, cy + 0.6, zBk + panT / 2 + 0.6, 0x2c3542);  // 画面 (下ベゼルのみ約2cm厚)
     }
   } else if (type === 'monitorarm') {
-    // ★v1.9 モニターアーム (エルゴトロンLX風): クランプ台座 + ポール + アーム2節 + VESAプレート
-    const poleH = Math.max(h * 0.6, 8);
-    P(Math.min(w, 10), 2.5, Math.min(d, 10), 0, 1.25, -d * 0.15, 0x2a2a2e);          // クランプ台座
-    P(Math.min(w, 10) * 0.5, 6, 3, 0, -2, -d / 2 + 1.5, 0x2a2a2e);                   // クランプ爪 (天板噛み)
-    CYL(1.8, poleH, 0, poleH / 2 + 2, -d * 0.15, base);                              // ポール
-    const a1 = P(3.2, 2.6, d * 0.5, 0, poleH + 1.5, -d * 0.15 + d * 0.25, base);     // アーム節1
-    P(3.2, 2.6, d * 0.45, 0, poleH - 1.5, d * 0.28, base);                           // アーム節2
-    P(Math.min(w, 12), Math.min(12, poleH), 1.6, 0, poleH - 2, d / 2 - 0.8, 0x3a3a3e); // VESAプレート
+    // ★v4.1 モニターアーム (エルゴトロン LX 45-241-224) を公式寸法図 DIM2-056 準拠で再構築。
+    //   クランプ (ベース幅100 / 全奥行111 / 天板厚10-60mm を挟む C クランプ) → ポール 200
+    //   → 第1アーム 231 (ガススプリング) → 第2アーム 293 → チルター + VESAプレート (幅156 / マウント奥行86)。
+    //   ポール中心〜VESA面の最大リーチ 650 = 40 (ポール中心〜第1アーム軸) + 231 + 293 + 86。
+    //   姿勢は item.vesaH (天板からVESAプレート中心までのcm・既定20・可動33 = 公式 Lift 330mm) から
+    //   armPose() が第1アームの仰角 + ポール上の取付高 (51-150mm) を解いて決める。
+    //   ⚠ VESAプレートの縦寸法・ベースプレート厚・関節径は公式非公表 → 製品写真比率からの推定値
+    const AP = armPose(it);
+    const met = base, mdk = dark;
+    const cz = -ARM.baseD / 2 + 1.0;                                      // C クランプ (天板端を挟む位置)
+    P(ARM.baseW, ARM.baseT, ARM.baseD, 0, ARM.baseT / 2, 0, met);         // ベースプレート (天板の上)
+    P(ARM.baseW * 0.6, 0.6, ARM.baseD * 0.78, 0, ARM.baseT + 0.3, 0.6, mdk);   // ベース上面の樹脂カバー
+    P(3.8, 7.4, 1.8, 0, -3.7, cz, mdk);                                   // クランプ 背板 (天板端の外側を通る)
+    P(3.8, 1.3, 5.2, 0, -6.75, cz + 2.6, mdk);                            // 受け金具 (天板の下へ回り込む)
+    CYL(0.75, 2.6, 0, -5.1, cz + 3.6, mdk);                               // 締め込みネジ
+    P(3.4, 0.9, 0.9, 0, -3.9, cz + 3.6, mdk);                             // ネジのハンドル
+    CYL(ARM.poleR + 0.5, 0.9, 0, ARM.baseT + 0.45, AP.poleZ, mdk);        // ポール根元のカラー
+    CYL(ARM.poleR, ARM.poleH, 0, ARM.baseT + ARM.poleH / 2, AP.poleZ, met);    // ポール 200mm
+    CYL(ARM.poleR + 0.3, 0.8, 0, ARM.baseT + ARM.poleH + 0.4, AP.poleZ, mdk);  // ポール天面キャップ
+    P(4.2, 4.6, 4.2, 0, AP.y1, AP.poleZ, met);                            // 第1アーム取付カラー (ポール上 51-150mm 可動)
+    const lnk = P(2.6, 2.4, ARM.offs + 1.4, Math.sin(AP.yaw1) * ARM.offs / 2, AP.y1,
+                  AP.poleZ + Math.cos(AP.yaw1) * ARM.offs / 2, met);      // カラー → 第1アーム軸 (40mm オフセット)
+    lnk.rotation.y = AP.yaw1;
+    const a1m = P(3.4, 2.8, ARM.a1, (AP.p1x + AP.ex) / 2, (AP.y1 + AP.ey) / 2,
+                  AP.poleZ + (AP.p1z + AP.ez) / 2, met);                  // 第1アーム 231mm
+    a1m.rotation.set(-AP.th1, AP.yaw1, 0, 'YXZ');                         // 仰角 (Lift) + 水平の折り畳み角
+    CYL(1.7, 3.4, AP.ex, AP.ey, AP.poleZ + AP.ez, mdk);                   // 肘 (エルボー) 関節
+    const a2m = P(3.0, 2.6, ARM.a2, (AP.ex + AP.wx) / 2, AP.ey, AP.poleZ + (AP.ez + AP.wz) / 2, met);
+    a2m.rotation.y = AP.yaw2;                                             // 第2アーム 293mm (水平・パン)
+    CYL(1.5, 3.0, AP.wx, AP.ey, AP.poleZ + AP.wz, mdk);                   // 手首 (パン) 関節
+    P(3.2, 2.8, ARM.mount - 2.4, AP.wx, AP.ey, AP.poleZ + AP.wz + (ARM.mount - 2.4) / 2, met);  // チルター (後70°/前5°)
+    P(ARM.vesaW, ARM.vesaPlateH, 1.0, AP.ax, AP.ay, AP.az - 0.5, mdk);    // VESAプレート 幅156mm
+    P(ARM.vesaW * 0.3, ARM.vesaPlateH * 0.3, 0.8, AP.ax, AP.ay, AP.az - 1.4, met);   // プレート裏のボス
   } else if (type === 'washer') {
     // ★v2.8 タテ型洗濯乾燥機 (BW-DX100J風): 本体 + 上面のフタ (少し明るい面) + 前面操作パネル帯。
     //        外形 w×d は給水ホース取付部・排水ホース込み → 本体は少し内側に描く (ボディ幅相当)
@@ -2700,7 +2781,8 @@ function itemMeshBuild(id, it) {
 }
 function syncItemMesh(m, it) {
   const key = [it.w, it.d, it.h, it.color, itemTypeOf(it), it.name, it.floorH || '',
-               it.mattress === false ? 'M0' : 'M1'].join('|');   // ★v2.0 floorH / ★v2.2 mattress でベッド組み直し
+               it.mattress === false ? 'M0' : 'M1',
+               it.mounted ? 'AM1' : 'AM0', it.vesaH || ''].join('|');   // ★v2.0 floorH / ★v2.2 mattress / ★v4.1 マウント・VESA高さ
   if (m.userData.buildKey !== key) {
     for (let i = m.children.length - 1; i >= 0; i--) m.remove(m.children[i]);
     buildItemParts(m, it);
@@ -2730,6 +2812,7 @@ function rebuildFurniture() {
     });
   } else {
     Object.keys(workItems).forEach(function (id) { itemMeshBuild(id, workItems[id]); });
+    syncMounts();   // ★v4.1 保存済みのマウント状態をアーム先端の実座標へ合わせ直す (アーム欠落時は床へ)
   }
 }
 
@@ -2838,18 +2921,214 @@ function bedUnder(selfId, it) {
   });
   return best;
 }
+// ═══════════════ ★v4.1 モニターアーム (エルゴトロン LX 45-241-224) マウント ═══════════════
+// 出典: 公式寸法図 DIM2-056 (rev.08/29/2024) + 日本語仕様シート。単位 cm。
+//   ポール200 / 第1アーム231 / 第2アーム293 / モニターマウント奥行86 / VESAプレート幅156 /
+//   ポール中心〜VESA面 最大リーチ650 (=40+231+293+86) / 折り畳み360 / 昇降(Lift)330 /
+//   アームのポール上可動範囲 51-150 / クランプ ベース幅100・全奥行111・天板厚10-60mm /
+//   耐荷重 3.2〜11.3kg (34インチまで) / VESA MIS-D 100×100・75×75
+const ARM = {
+  baseW: 10.0, baseD: 11.1, baseT: 1.2,      // クランプ ベース (幅100 / 全奥行111 / 板厚は推定)
+  poleH: 20.0, poleR: 1.7, poleBack: 3.5,    // ポール 200mm (径・ベース後端からの位置は推定)
+  offs: 4.0,                                 // ポール中心 → 第1アーム回転軸 (1.6" = 40mm)
+  a1: 23.1, a2: 29.3,                        // 第1アーム 231mm / 第2アーム 293mm
+  mount: 8.6,                                // モニターマウント奥行 (3.4" = 86mm)
+  vesaW: 15.6, vesaPlateH: 12.0,             // VESAプレート 幅156mm (縦寸法は公式非公表→推定)
+  collarMin: 5.1, collarMax: 15.0,           // アーム取付のポール上可動範囲 51-150mm
+  collarDef: 8.0,                            // 既定の取付高 (可動範囲の中ほど)
+  liftMin: 2, liftMax: 35,                   // 天板からのVESA中心高さ (可動幅33 = 公式 Lift 330mm)
+  liftDef: 24, fold: -70,                    // 既定のVESA高さ / 第1アームの折り畳み角 (折畳360mm 相当)
+  clr: 3,                                    // マウント時に確保するパネル下端〜天板のクリアランス
+  maxKg: 11.3, maxInch: 34,                  // 耐荷重・対応画面サイズ
+  snapR: 32, holdR: 45                       // マウント吸着半径 / マウント解除半径 (ヒステリシス)
+};
+function armVesaH(it) {
+  const v = Number(it && it.vesaH);
+  return Math.min(Math.max(isFinite(v) && v > 0 ? v : ARM.liftDef, ARM.liftMin), ARM.liftMax);
+}
+// item.vesaH (天板からVESAプレート中心までのcm) から アームの姿勢を解く。
+//  第1アームの仰角 th1 で高さを作り、足りない分だけ ポール上の取付高 hc (51-150mm) を動かす。
+//  第2アームの水平角は「VESAプレートがポール軸の真正面 (左右オフセット0) に来る」ように解く (実機のパン関節相当)。
+function armPose(it) {
+  const T = armVesaH(it);
+  const poleZ = -ARM.baseD / 2 + ARM.poleBack;
+  const UP = Math.sin(55 * Math.PI / 180), DN = -Math.sin(42 * Math.PI / 180);   // 第1アームの仰角レンジ
+  let hc = ARM.collarDef;
+  let s = (T - ARM.baseT - hc) / ARM.a1;
+  if (s > UP || s < DN) {                    // 仰角だけで届かない分はポール上の取付高でまかなう
+    hc = Math.min(Math.max(T - ARM.baseT - ARM.a1 * (s > 0 ? UP : DN), ARM.collarMin), ARM.collarMax);
+    s = (T - ARM.baseT - hc) / ARM.a1;
+  }
+  s = Math.min(Math.max(s, -0.75), 0.93);
+  const th1 = Math.asin(s), yaw1 = ARM.fold * Math.PI / 180;
+  const y1 = ARM.baseT + hc;                                     // 第1アーム回転軸の高さ
+  const L1 = ARM.a1 * Math.cos(th1);                             // 第1アームの水平投影長
+  const yaw2 = Math.asin(Math.min(Math.max(-Math.sin(yaw1) * (ARM.offs + L1) / ARM.a2, -0.98), 0.98));
+  const p1x = Math.sin(yaw1) * ARM.offs, p1z = Math.cos(yaw1) * ARM.offs;        // 第1アーム回転軸
+  const ex = Math.sin(yaw1) * (ARM.offs + L1), ez = Math.cos(yaw1) * (ARM.offs + L1);   // 肘
+  const ey = y1 + ARM.a1 * Math.sin(th1);
+  const wx = ex + Math.sin(yaw2) * ARM.a2, wz = ez + Math.cos(yaw2) * ARM.a2;    // 手首
+  return { hc: hc, th1: th1, yaw1: yaw1, yaw2: yaw2, poleZ: poleZ, y1: y1, ey: ey,
+           p1x: p1x, p1z: p1z, ex: ex, ez: ez, wx: wx, wz: wz,
+           ax: wx, ay: ey, az: poleZ + wz + ARM.mount, vesaH: T };   // a* = VESAプレート面の中心 (取付点)
+}
+// モニターのパネル実寸 (スタンドを除いた画面部分)。公式スペック値 (mechanical drawing は両社とも非公表)
+function monitorPanelDims(it) {
+  const nm = (it.name || '') + ' ' + (it.memo || '');
+  const d = Math.max(Number(it.d) || 10, 2), h = Math.max(Number(it.h) || 10, 2);
+  const curve = /342CQR|1500R|曲面/.test(nm);
+  return {
+    panH: /EX2710/.test(nm) ? Math.min(38.2, h - 2) : (curve ? Math.min(36.4, h - 2) : Math.max(h * 0.68, 6)),
+    panT: /EX2710/.test(nm) ? 6.4 : (curve ? Math.min(12, d * 0.5) : Math.min(6, d * 0.35)),
+    curve: curve
+  };
+}
+function isArmItem(it) { return itemTypeOf(it) === 'monitorarm'; }
+function isMonitorItem(it) { return itemTypeOf(it) === 'monitor'; }
+function isMountedItem(it) { return !!(it && it.mounted && isMonitorItem(it)); }
+// アーム先端 (VESAプレート面の中心) のワールド座標。マウント中モニターの原点はここに一致する
+function armAttachPoint(arm) {
+  const p = armPose(arm);
+  const a = -((arm.rotY || 0) * Math.PI / 180), ca = Math.cos(a), sa = Math.sin(a);
+  return { x: arm.x + p.ax * ca + p.az * sa, y: (Number(arm.y) || 0) + p.ay,
+           z: arm.z - p.ax * sa + p.az * ca,
+           rotY: (((arm.rotY || 0) % 360) + 360) % 360, vesaH: p.vesaH };
+}
+// マウント中モニターの AABB: 原点がパネル背面中心なので、前方 (ローカル+z) 半パネル厚ぶんずらした箱
+function mountedAabb(it) {
+  const pd = monitorPanelDims(it), a = -((it.rotY || 0) * Math.PI / 180);
+  const w = Math.max(Number(it.w) || 10, 2), t = pd.panT + 2, y = Number(it.y) || 0;
+  const rot = (((it.rotY || 0) % 180) + 180) % 180, swap = rot >= 45 && rot < 135;
+  const hx = (swap ? t : w) / 2, hz = (swap ? w : t) / 2;
+  const cx = it.x + (t / 2) * Math.sin(a), cz = it.z + (t / 2) * Math.cos(a);
+  return { minX: cx - hx, maxX: cx + hx, minZ: cz - hz, maxZ: cz + hz,
+           minY: y - pd.panH / 2, maxY: y + pd.panH / 2 };
+}
+// ドラッグ中のモニターが吸着すべきアーム (先端の近く or アーム本体の真上)。無ければ null
+function mountTargetFor(selfId, it) {
+  if (!isMonitorItem(it)) return null;
+  let best = null, bestD = 1e9;
+  Object.keys(workItems).forEach(function (oid) {
+    if (oid === selfId) return;
+    const ot = workItems[oid];
+    if (!isArmItem(ot)) return;
+    const ap = armAttachPoint(ot);
+    const dxz = Math.sqrt((it.x - ap.x) * (it.x - ap.x) + (it.z - ap.z) * (it.z - ap.z));
+    const R = (it.mountArm === oid && it.mounted) ? ARM.holdR : ARM.snapR;   // 一度マウントしたら離す距離は広め
+    const a = itemAabb(it), b = itemAabb(ot);
+    const overBase = a.minX < b.maxX && a.maxX > b.minX && a.minZ < b.maxZ && a.maxZ > b.minZ;
+    if ((dxz < R || overBase) && dxz < bestD) { bestD = dxz; best = { id: oid, it: ot }; }
+  });
+  return best;
+}
+// マウント中モニターのパネル下端が天板に沈まない最低VESA高さ (パネル高の半分 + クリアランス3cm)
+function monMinVesaH(mo) {
+  return Math.min(Math.round((monitorPanelDims(mo).panH / 2 + ARM.clr) * 2) / 2, ARM.liftMax);
+}
+function armMinVesaH(armId) {
+  let mn = ARM.liftMin;
+  Object.keys(workItems).forEach(function (k) {
+    const mo = workItems[k];
+    if (isMountedItem(mo) && mo.mountArm === armId) mn = Math.max(mn, monMinVesaH(mo));
+  });
+  return mn;
+}
+// マウント解除して天面/床へ戻す (アーム削除・別モニターへの付け替え時の共通処理)
+function dropOffArm(id, mo) {
+  clearMountPose(mo, true);
+  clampItem(mo);
+  const s = supportTopFor(id, mo);
+  mo.y = s === null ? 0 : s;
+  if (blockedAny(id, mo)) findFreeSpot(id, mo);
+  const s2 = supportTopFor(id, mo);
+  mo.y = s2 === null ? 0 : s2;
+  const om = furnMeshes[id];
+  if (om) syncItemMesh(om, mo);
+}
+function applyMountPose(it, armId, arm) {
+  // 1アーム = 1モニター (実機と同じ)。同じアームに別のモニターが付いていたら外して天面/床へ戻す
+  Object.keys(workItems).forEach(function (k) {
+    const o = workItems[k];
+    if (o !== it && isMountedItem(o) && o.mountArm === armId) dropOffArm(k, o);
+  });
+  it.mounted = true; it.mountArm = armId;
+  if (armVesaH(arm) < monMinVesaH(it)) {          // パネル下端が天板に沈む高さなら実機同様アームを持ち上げる
+    arm.vesaH = monMinVesaH(it);
+    const am = furnMeshes[armId];
+    if (am) syncItemMesh(am, arm);
+  }
+  const ap = armAttachPoint(arm);
+  it.x = Math.round(ap.x * 10) / 10; it.y = Math.round(ap.y * 10) / 10; it.z = Math.round(ap.z * 10) / 10;
+  it.rotY = ap.rotY;
+}
+// マウント解除 (スタンド復活)。shift=true で 背面中心原点 → 通常の footprint 中心へ座標を戻す
+function clearMountPose(it, shift) {
+  if (shift) {
+    const a = -((it.rotY || 0) * Math.PI / 180), dd = (Number(it.d) || 10) / 2;
+    it.x = Math.round((it.x + dd * Math.sin(a)) * 10) / 10;
+    it.z = Math.round((it.z + dd * Math.cos(a)) * 10) / 10;
+  }
+  it.mounted = false; it.mountArm = null; it.y = 0;
+}
+// マウント中モニターをアーム先端へ追従させる (アームの移動・回転・VESA高さ変更のたびに呼ぶ)
+function syncMounts(armId) {
+  Object.keys(workItems).forEach(function (mid) {
+    const mo = workItems[mid];
+    if (!isMountedItem(mo)) return;
+    if (armId && mo.mountArm !== armId) return;
+    const arm = workItems[mo.mountArm];
+    if (!arm || !isArmItem(arm)) { dropOffArm(mid, mo); return; }   // アームが消えた → 天面/床へ戻す
+    applyMountPose(mo, mo.mountArm, arm);
+    const mm = furnMeshes[mid];
+    if (mm) syncItemMesh(mm, mo);
+  });
+}
+function mountedCountOf(armId) {
+  return Object.keys(workItems).filter(function (k) {
+    return isMountedItem(workItems[k]) && workItems[k].mountArm === armId;
+  }).length;
+}
+// 耐荷重・画面サイズの適合チェック (重量・インチは memo/名称の公式値から拾う)
+function monitorLoadWarn(mo) {
+  const txt = (mo.name || '') + ' ' + (mo.memo || '');
+  let kg = 0;
+  (txt.match(/([\d.]+)\s*kg/g) || []).forEach(function (s) { kg = Math.max(kg, parseFloat(s) || 0); });
+  const im = txt.match(/(\d{2,3})\s*(?:インチ|型|V型)/);
+  const inch = im ? parseInt(im[1], 10) : 0;
+  const ng = [];
+  if (kg > ARM.maxKg) ng.push('重量 ' + kg + 'kg > 耐荷重 ' + ARM.maxKg + 'kg');
+  if (inch > ARM.maxInch) ng.push('画面 ' + inch + '型 > 対応 ' + ARM.maxInch + 'インチ');
+  return ng.length ? '⚠ ' + ng.join(' / ') + ' — エルゴトロン LX の適合範囲外です' : null;
+}
+// ドラッグ確定時のマウント/解除トースト (was = ドラッグ開始時にマウントしていたアームid or null)
+function reportMountChange(id, it, was) {
+  const now = isMountedItem(it) ? it.mountArm : null;
+  if (now === was) return;
+  if (now) {
+    const arm = workItems[now];
+    const vh = arm ? armVesaH(arm) : ARM.liftDef;
+    toast('🖥 モニターアームにマウントしました (VESA高さ ' + vh + 'cm / 画面中心 床から ' + Math.round(it.y) + 'cm)');
+    const warn = monitorLoadWarn(it);
+    if (warn) setTimeout(function () { toast(warn); }, 2200);
+  } else {
+    toast('モニターアームから外しました (スタンド表示に戻しました)');
+  }
+}
+
 // ★v1.9 デスク載せスナップ: XZ で重なる他アイテムのうち、自分以上の footprint を持つものの最高天面。
 //        null = 支え無し (床置き)。モニター/モニターアームをデスク天面に載せる動線用。
 // ★v3.1 天面載せスナップはホワイトリスト制: monitor / monitorarm のみ (マットレス→ベッドは bedUnder 特例)。
 //        チェア等の大型家具がテーブルへのドラッグで天面に持ち上がる事故の防止 (床置き固定)
 const TOP_STACK_TYPES = { monitor: 1, monitorarm: 1 };
 function supportTopFor(selfId, it) {
+  if (isMountedItem(it)) return null;                  // ★v4.1 アームにマウント中は支え不要 (宙に浮く)
   if (!TOP_STACK_TYPES[itemTypeOf(it)]) return null;   // ★v3.1 ホワイトリスト外は常に床置き
   const a = itemAabb(it);
   const myArea = (a.maxX - a.minX) * (a.maxZ - a.minZ);
   let top = null;
   Object.keys(workItems).forEach(function (oid) {
     if (oid === selfId) return;
+    if (isMountedItem(workItems[oid])) return;         // ★v4.1 宙に浮いたモニターは天面にならない
     if (isMattressItem(it) && isBedItem(workItems[oid])) return;   // ★v2.0 ベッドは汎用天面スナップ対象外 (床板面特例で処理)
     const b = itemAabb(workItems[oid]);
     if (a.minX < b.maxX - 0.5 && a.maxX > b.minX + 0.5 && a.minZ < b.maxZ - 0.5 && a.maxZ > b.minZ + 0.5) {
@@ -2862,6 +3141,7 @@ function supportTopFor(selfId, it) {
 
 // ★v1.8 家具同士のめり込み防止: rotY90 を考慮した外接矩形 (AABB) + 高さ帯の重なり判定
 function itemAabb(it) {
+  if (isMountedItem(it)) return mountedAabb(it);   // ★v4.1 アームマウント中は原点=パネル背面中心
   const rot = (((it.rotY || 0) % 180) + 180) % 180;
   const swap = rot >= 45 && rot < 135;
   const hx = ((swap ? Number(it.d) : Number(it.w)) || 1) / 2;
@@ -2914,6 +3194,8 @@ function boxesOverlap(a, b) {
 }
 // ★v2.2[6] 1ペア衝突判定を関数化 (免除セット収集と共用)
 function pairCollides(it, ot) {
+  // ★v4.1 アームにマウント中のモニターは宙に浮いている扱い (位置はアーム先端から決まる) → 衝突判定から外す
+  if (isMountedItem(it) || isMountedItem(ot)) return false;
   // ★v2.0 マットレス×ベッドは重なり許容 (床板面スナップで載せる。はみ出しもブロックしない)
   if ((isMattressItem(it) && isBedItem(ot)) || (isBedItem(it) && isMattressItem(ot))) return false;
   // ★v3.1 チェア×テーブル/デスクはマルチボックス近似 (チェア×チェア等はこの分岐に入らず従来AABB)
@@ -3047,6 +3329,38 @@ function openItemSheet() {
         : '') +
       '</div>';
   }
+  // ★v4.1 モニターアーム: VESA高さ (天板から画面中心まで) の調整。公式 Lift 330mm の範囲で上下し、
+  //        マウント中のモニターも一緒に上下する
+  let vesaBlock = '';
+  if (isArmItem(it)) {
+    const vh = armVesaH(it), mc = mountedCountOf(selectedItemId), mn = armMinVesaH(selectedItemId);
+    vesaBlock =
+      '<div class="form-group"><label class="form-label">VESA高さ (天板から画面中心まで): ' +
+      '<b id="vesaVal">' + vh + '</b> cm</label>' +
+      '<input class="form-input" type="range" min="' + mn + '" max="' + ARM.liftMax + '" step="0.5" ' +
+      'value="' + vh + '" oninput="setVesaH(this.value, true)" onchange="setVesaH(this.value)" ' +
+      'aria-label="VESA高さ" style="padding:0;">' +
+      '<div class="floorh-seg" style="margin-top:6px;">' +
+      '<button class="floorh-btn" onclick="nudgeVesaH(-1)">− 1cm</button>' +
+      '<button class="floorh-btn" onclick="setVesaH(' + ARM.liftDef + ')">既定 ' + ARM.liftDef + 'cm</button>' +
+      '<button class="floorh-btn" onclick="nudgeVesaH(1)">＋ 1cm</button>' +
+      '</div>' +
+      '<div class="dim-note">📐 公式 昇降(Lift) 330mm = ' + ARM.liftMin + '〜' + ARM.liftMax + 'cm の範囲' +
+      (mc ? ' / マウント中のモニター ' + mc + '台も一緒に上下します (下限 ' + mn + 'cm = パネル下端が天板に当たる高さ)'
+          : ' (モニターをドラッグして重ねるとマウントできます)') +
+      '</div></div>';
+  }
+  // ★v4.1 モニター: アームへのマウント状態表示 + 解除ボタン
+  let mountBlock = '';
+  if (isMountedItem(it)) {
+    const arm = workItems[it.mountArm];
+    mountBlock =
+      '<div class="form-group"><label class="form-label">モニターアーム</label>' +
+      '<div class="dim-note">🖥 「' + esc(arm ? (arm.name || 'モニターアーム') : 'モニターアーム') + '」にマウント中 ' +
+      '(VESA高さ ' + (arm ? armVesaH(arm) : '-') + 'cm / 画面中心 床から ' + Math.round(Number(it.y) || 0) + 'cm)。' +
+      'スタンドは外れ、アームを動かすと一緒に移動します (1アームにつき1台)</div>' +
+      '<button class="btn-secondary" style="width:100%;margin-top:6px;" onclick="unmountMonitor()">⤓ アームから外す (スタンドに戻す)</button></div>';
+  }
   b.innerHTML =
     '<div class="form-group"><label class="form-label">名前</label>' +
     '<input class="form-input" value="' + esc(it.name || '') + '" oninput="updItem(\'name\', this.value)"></div>' +
@@ -3054,7 +3368,7 @@ function openItemSheet() {
     dimCell('幅W (cm)', 'w') + dimCell('奥行D (cm)', 'd') + dimCell('高さH (cm)', 'h') +
     '</div>' +
     (fixedDims ? '<div class="dim-note">📐 カタログ商品の正式寸法のためサイズは変更できません</div>' : '') +
-    colorBlock + floorHBlock + mattressBlock +
+    colorBlock + floorHBlock + mattressBlock + vesaBlock + mountBlock +
     '<div class="form-row">' +
     (colorOpts ? '' : '<div class="form-group"><label class="form-label">色</label><input type="color" class="form-input" value="' + esc(it.color || '#b9a488') + '" oninput="updItem(\'color\', this.value)"></div>') +
     '<div class="form-group"><label class="form-label">床からの高さ (cm)</label><input class="form-input" type="number" inputmode="decimal" min="0" value="' + (it.y || 0) + '" oninput="updItem(\'y\', this.value)"></div>' +
@@ -3134,6 +3448,7 @@ window.updItem = function (field, val) {
   }
   const m = furnMeshes[selectedItemId];
   if (m) syncItemMesh(m, it);
+  syncMounts(isArmItem(it) ? selectedItemId : null);   // ★v4.1 アーム変更→追従 / マウント中モニターは位置を戻す
   if (field === 'name') {
     document.getElementById('itemSheetTitle').textContent = '🛋 ' + (it.name || '家具');
     document.getElementById('itemPeekTitle').textContent = '🛋 ' + (it.name || '家具');   // ★v2.5[5]
@@ -3181,9 +3496,52 @@ window.setBedMattress = function (v) {
   openItemSheet();
   toast(v ? 'マットレスを表示しました (セット)' : 'フレームのみ表示にしました');
 };
+// ★v4.1 モニターアームの VESA高さ (天板から画面中心まで)。公式 Lift 330mm の範囲。
+//        live=true (スライダー操作中) は数値ラベルだけ更新して DOM は組み直さない (つまみが飛ぶため)
+window.setVesaH = function (v, live) {
+  const it = workItems[selectedItemId];
+  if (!it || !isArmItem(it)) return;
+  const mn = armMinVesaH(selectedItemId);   // マウント中モニターが天板に沈まない下限
+  it.vesaH = Math.round(Math.min(Math.max(Number(v) || ARM.liftDef, mn), ARM.liftMax) * 2) / 2;
+  const m = furnMeshes[selectedItemId];
+  if (m) syncItemMesh(m, it);
+  syncMounts(selectedItemId);          // マウント中モニターも追従
+  markDirty();
+  const lab = document.getElementById('vesaVal');
+  if (lab) lab.textContent = it.vesaH;
+  if (!live) {
+    const mc = mountedCountOf(selectedItemId);
+    toast('VESA高さを ' + it.vesaH + 'cm にしました' + (mc ? ' (モニター' + mc + '台も追従)' : ''));
+  }
+};
+window.nudgeVesaH = function (d) {
+  const it = workItems[selectedItemId];
+  if (!it || !isArmItem(it)) return;
+  window.setVesaH(armVesaH(it) + Number(d));
+  openItemSheet();                     // スライダーのつまみ位置を反映
+};
+// ★v4.1 モニターをアームから外す (スタンド復活 → 天面/床へ戻す)
+window.unmountMonitor = function () {
+  const it = workItems[selectedItemId];
+  if (!it || !isMountedItem(it)) return;
+  const id = selectedItemId;
+  clearMountPose(it, true);
+  clampItem(it);
+  const sup = supportTopFor(id, it);
+  it.y = sup === null ? 0 : sup;
+  if (blockedAny(id, it)) findFreeSpot(id, it);
+  const sup2 = supportTopFor(id, it);
+  it.y = sup2 === null ? 0 : sup2;
+  const m = furnMeshes[id];
+  if (m) syncItemMesh(m, it);
+  markDirty();
+  openItemSheet();
+  toast('モニターアームから外しました (スタンド表示に戻しました)');
+};
 window.rotateItem = function () {
   const it = workItems[selectedItemId];
   if (!it) return;
+  if (isMountedItem(it)) { toast('マウント中はアーム側を回転してください (モニターは追従します)'); return; }   // ★v4.1
   const prevRot = it.rotY || 0, px = it.x, pz = it.z;
   const rig = overlapState(selectedItemId, it);   // ★v2.2[6] 回転前から重なっている相手は免除
   it.rotY = (prevRot + 90) % 360;
@@ -3195,12 +3553,14 @@ window.rotateItem = function () {
   }
   const m = furnMeshes[selectedItemId];
   if (m) syncItemMesh(m, it);
+  syncMounts(selectedItemId);   // ★v4.1 アームを回したらマウント中モニターも向きごと追従
   markDirty();
 };
 window.duplicateItem = function () {
   const it = workItems[selectedItemId];
   if (!it) return;
   const copy = JSON.parse(JSON.stringify(it));
+  if (copy.mounted) clearMountPose(copy, true);   // ★v4.1 複製はマウントを引き継がない (1アーム=1モニター)
   copy.x += 20; copy.z += 20;
   clampItem(copy);
   if (!findFreeSpot(null, copy)) toast('空きスペースが無いため重なって配置されました。移動してください');  // ★v1.8
@@ -3218,7 +3578,9 @@ window.deleteItem = function () {
   confirmModal('家具を削除', '「' + (it.name || '家具') + '」を削除しますか？', '削除する', function () {
     deselect();                                                        // 選択状態・パネルを解除
     if (furnMeshes[id]) { furnGroup.remove(furnMeshes[id]); delete furnMeshes[id]; }  // メッシュ削除
+    const wasArm = isArmItem(it);
     delete workItems[id];                                              // 作業データ削除
+    if (wasArm) syncMounts();   // ★v4.1 アームを消したらマウント中モニターはスタンド復活して床/天面へ
     markDirty();
     toast('削除しました (💾 保存で確定)');
   });
@@ -3401,7 +3763,9 @@ function beginDrag(itemId, it, p) {
   return { itemId: itemId, sx: it.x, sz: it.z, px: p.x, pz: p.z,
            vx: it.x, vz: it.z, vy: y0,
            ig: overlapState(itemId, it),   // ★v2.2[6] 開始時点で重なっている相手は分離まで衝突免除
-           autoY: y0 === 0 || (sup0 !== null && Math.abs(y0 - sup0) < 0.6) ||
+           wasMounted: isMountedItem(it) ? it.mountArm : null,   // ★v4.1 マウント状態の変化をドラッグ確定時に報告
+           autoY: isMountedItem(it) || y0 === 0 ||   // ★v4.1 アームから外したら床/天面へ落とす
+                  (sup0 !== null && Math.abs(y0 - sup0) < 0.6) ||
                   (bed0 !== null && Math.abs(y0 - bedFloorH(bed0)) < 0.6) };
 }
 // ★v1.9 ドラッグ中の位置解決:
@@ -3409,6 +3773,21 @@ function beginDrag(itemId, it, p) {
 //  2) 家具同士は「相手の天面に載せられるなら y を天面へスナップ」(モニター→デスク等)。
 //     載せられない (天井超え・相手が小さい) 場合は従来通り滑らせ/押し出し
 function resolveDragPos(drag, it) {
+  // ★v4.1 モニター×モニターアーム: アーム先端 (VESAプレート) の近く or アーム本体の真上へ運ぶと、
+  //   実物同様にアーム先端の位置・高さへ吸着 (スタンドを外して背面をプレートに固定)。
+  //   離れる方向へドラッグすると解除され、スタンド復活 → 通常の天面/床スナップに戻る。
+  if (isMonitorItem(it)) {
+    const tgt = mountTargetFor(drag.itemId, it);
+    if (tgt) {
+      applyMountPose(it, tgt.id, tgt.it);
+      drag.vx = it.x; drag.vz = it.z; drag.vy = it.y;
+      return;                                    // 宙に浮いているので 部屋ポリゴン/設備/家具の判定は不要
+    }
+    if (isMountedItem(it)) {
+      clearMountPose(it, false);                 // ドラッグ中の解除は座標をずらさない (指の位置のまま)
+      drag.ig = overlapState(drag.itemId, it);   // 解除直後に生じた重なりは分離まで免除
+    }
+  }
   const igF = drag.ig && drag.ig.fix, igI = drag.ig && drag.ig.items;   // ★v2.2[6] 重なり免除セット
   if (outsideRoom(it) || hitsFixture(it, igF)) {
     const nz = it.z;
@@ -3438,6 +3817,7 @@ function resolveDragPos(drag, it) {
     }
   }
   drag.vx = it.x; drag.vz = it.z; drag.vy = it.y;
+  if (isArmItem(it)) syncMounts(drag.itemId);   // ★v4.1 アームを動かしたらマウント中モニターも一緒に動く
   // ★v2.2[6] 分離できた相手は免除セットから外す (以後は通常の衝突判定に復帰)
   if (drag.ig) {
     Object.keys(drag.ig.items).forEach(function (oid) {
@@ -3505,7 +3885,12 @@ function checkWasherPanFit(itemId) {
     : '🧺 洗濯機パン: ' + lbl + w + '×' + dd + ' は内寸60×60からはみ出します');
 }
 function finishDrag() {
-  if (drag) { checkWasherPanFit(drag.itemId); markDirty(); drag = null; }   // ★v2.7 パン適合トースト
+  if (drag) {
+    const dit = workItems[drag.itemId];
+    if (dit && isMonitorItem(dit)) reportMountChange(drag.itemId, dit, drag.wasMounted);   // ★v4.1 マウント/解除トースト
+    if (dit && isArmItem(dit)) syncMounts(drag.itemId);
+    checkWasherPanFit(drag.itemId); markDirty(); drag = null;   // ★v2.7 パン適合トースト
+  }
   if (controls) controls.enabled = true;
 }
 
@@ -4025,6 +4410,12 @@ document.addEventListener('keydown', function (e) {
   if (!it) return;
   if (e.key === 'r' || e.key === 'R') { window.rotateItem(); return; }
   if (e.key === 'Delete') { window.deleteItem(); return; }
+  // ★v4.1 アームにマウント中のモニターは単独では動かせない (位置はアーム先端で決まる)
+  if (isMountedItem(it) && /^Arrow/.test(e.key)) {
+    e.preventDefault();
+    toast('マウント中はアーム側を動かしてください (モニターは追従します)');
+    return;
+  }
   const step = e.shiftKey ? 10 : 1;
   let used = true;
   const px = it.x, pz = it.z;
@@ -4045,6 +4436,7 @@ document.addEventListener('keydown', function (e) {
     }
     const m = furnMeshes[selectedItemId];
     if (m) syncItemMesh(m, it);
+    if (isArmItem(it)) syncMounts(selectedItemId);   // ★v4.1 キー移動でもマウント中モニターが追従
     markDirty();
   }
 });
@@ -4114,7 +4506,12 @@ function cleanItem(it) {
     type: it.type || null,   // ★v1.8 パラメトリックモデル用 (未設定時は catalogId 経由で解決)
     colorName: it.colorName || null,   // ★v2.0 カラーバリエーション選択名 (既存データは undefined でもOK)
     floorH: (it.floorH === undefined || it.floorH === null || it.floorH === '') ? null : Number(it.floorH),   // ★v2.0 Aerus床面高 (null=既定32)
-    mattress: it.mattress === false ? false : true   // ★v2.2 Aerusマットレス内蔵表示 (既定ON)
+    mattress: it.mattress === false ? false : true,   // ★v2.2 Aerusマットレス内蔵表示 (既定ON)
+    // ★v4.1 モニターアーム マウント: mounted=マウント中 (スタンド非表示・原点=パネル背面中心) /
+    //        mountArm=マウント先アームの item id / vesaH=アームの天板からのVESA中心高さ (null=既定20)
+    mounted: it.mounted === true,
+    mountArm: it.mountArm || null,
+    vesaH: (it.vesaH === undefined || it.vesaH === null || it.vesaH === '') ? null : Number(it.vesaH)
   };
 }
 
