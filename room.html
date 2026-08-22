@@ -923,10 +923,13 @@ function buildOpeningPanelTagged(g, o, s, e, sill, top, horiz, wc, outSign, c) {
   if (o.type === 'open') {
     const len = e - s, hgt = top - sill;
     if (len > 1 && hgt > 1) {
+      // ★v6.4-a 開口の不可視パネルは 部屋側の壁面のすぐ手前 (壁中心 wc だと 開口の裏の設備が手前に来て拾えない)
+      const face = (c === undefined || c === null) ? wc : c;
+      const pc = face - outSign * 1.2;
       const pm = new THREE.Mesh(
-        new THREE.BoxGeometry(horiz ? len : 2, hgt, horiz ? 2 : len),
+        new THREE.BoxGeometry(horiz ? len : 1.6, hgt, horiz ? 1.6 : len),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-      pm.position.set(horiz ? (s + e) / 2 : wc, sill + hgt / 2, horiz ? wc : (s + e) / 2);
+      pm.position.set(horiz ? (s + e) / 2 : pc, sill + hgt / 2, horiz ? pc : (s + e) / 2);
       pm.userData.kind = 'opening';
       pm.userData.info = o.label || '開口';
       pm.userData.opId = o.id;
@@ -5279,18 +5282,21 @@ function tipDoorMotion(o) {
   if (he || hs) parts.push('吊元: ' + (he ? (r0.horiz ? '東' : '南') : (r0.horiz ? '西' : '北')) + '端');
   return parts.length ? ('開閉: ' + parts.join(' / ')) : null;
 }
-// 窓の種類
+// ★v6.4-a 窓の種類
+//   ROOM_DATA のラベルには改訂履歴 (例 WIN-01 「★v1.7 掃き出し→腰窓修正」) が残っているため、
+//   形式ワードを素直に全部拾うと「掃き出し窓・腰窓」と矛盾する。競合時は sillH (実データ) で決める。
 function tipWindowKind(o) {
   const lb = (o.label || '') + ' ' + (o.name || ''), k = [];
+  const sill = Number(o.sillH) || 0;
   if (/FIX|はめ殺し/i.test(lb)) k.push('FIX (はめ殺し)');
   if (/すべり出し/.test(lb)) k.push((/縦すべり出し/.test(lb) ? '縦' : '') + 'すべり出し窓');
-  if (/掛け出し/.test(lb)) k.push('掛け出し窓');
-  if (/掃き出し/.test(lb)) k.push('掃き出し窓');
-  if (/腰窓/.test(lb)) k.push('腰窓');
   if (/引違い/.test(lb)) k.push('引違い');
   if (!k.length) {
-    const s = Number(o.sillH) || 0;
-    k.push(s < 5 ? '掃き出し窓' : (s >= 140 ? '高所窓' : '腰窓'));
+    const sweep = /掃き出し/.test(lb), koshi = /腰窓/.test(lb);
+    if (sweep && koshi) k.push(sill < 5 ? '掃き出し窓' : '腰窓');
+    else if (sweep) k.push('掃き出し窓');
+    else if (koshi) k.push('腰窓');
+    else k.push(sill < 5 ? '掃き出し窓' : (sill >= 140 ? '高所窓' : '腰窓'));
   }
   return k.join('・');
 }
@@ -5360,7 +5366,8 @@ function tipRows(a, ud) {
     const botH = Number(o.bottomH) || 0;
     const bx = tipFixBox(o);
     if (bx) {
-      rows.push('幅W ' + tipN(bx.w) + ' × 奥行D ' + tipN(bx.d) +
+      // ★v6.4-a rect は [x, y, dx, dy] = 平面 x/y 方向の寸法。物の「幅」と一致しない向きもあるので軸を併記
+      rows.push('幅W ' + tipN(bx.w) + '(x) × 奥行D ' + tipN(bx.d) + '(y)' +
                 ' × 高さH ' + tipN(Math.max(topH - botH, 0)) + 'cm' + (bx.poly ? ' (外接矩形)' : ''));
     } else {
       rows.push('高さH ' + tipN(topH) + 'cm');
@@ -5429,7 +5436,8 @@ function itemDimSummaryHtml(id, it) {
   rows.push('幅W ' + tipN(it.w) + ' × 奥行D ' + tipN(it.d) + ' × 高さH ' + tipN(it.h) + 'cm');
   const rot = ((Math.round(Number(it.rotY) || 0) % 360) + 360) % 360;
   const y = Number(it.y) || 0, h = Number(it.h) || 0;
-  rows.push('回転: ' + rot + '° / 床から: ' + tipN(y) + 'cm' + (y < 0.05 ? ' (床置き)' : '') +
+  rows.push('回転: ' + rot + '° / 床から: ' + tipN(y) + 'cm' +
+            (y < 0.05 && !it.insideOf && !isMountedItem(it) ? ' (床置き)' : '') +   // ★v6.4-a 収納内は床まで抜けているので床置きとは書かない
             ' / 上端: ' + tipN(y + h) + 'cm');
   if (it.insideOf && workItems[it.insideOf]) {
     const host = workItems[it.insideOf], cav = openCavityOf(host);
