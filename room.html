@@ -902,6 +902,41 @@ function openingRange(o) {
   };
 }
 
+// ═══ ★v6.4 開口描画のラッパ ═══
+//   ① buildOpeningPanel が作った全メッシュに opId を刻む → 三方枠・上レール・戸袋を押しても
+//      どの建具 (D-06 等) の部材かが一意に引ける。
+//   ② 窓 (WIN-) はガラスが pickables に入っていなかったので クリックできなかった → 登録する。
+//   ③ 開口 (OP-) は建具が無くメッシュゼロ → クリック判定専用の不可視パネル (pickOnly) を立てる。
+function buildOpeningPanelTagged(g, o, s, e, sill, top, horiz, wc, outSign, c) {
+  const n0 = g.children.length;
+  buildOpeningPanel(g, o, s, e, sill, top, horiz, wc, outSign, c);
+  for (let i = n0; i < g.children.length; i++) {
+    const m = g.children[i];
+    if (!m || !m.userData) continue;
+    if (!m.userData.opId) m.userData.opId = o.id;
+    if (o.type === 'window' && m.isMesh && !m.userData.kind) {
+      m.userData.kind = 'opening';
+      m.userData.info = o.label || '窓';
+      pickables.push(m);
+    }
+  }
+  if (o.type === 'open') {
+    const len = e - s, hgt = top - sill;
+    if (len > 1 && hgt > 1) {
+      const pm = new THREE.Mesh(
+        new THREE.BoxGeometry(horiz ? len : 2, hgt, horiz ? 2 : len),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+      pm.position.set(horiz ? (s + e) / 2 : wc, sill + hgt / 2, horiz ? wc : (s + e) / 2);
+      pm.userData.kind = 'opening';
+      pm.userData.info = o.label || '開口';
+      pm.userData.opId = o.id;
+      pm.userData.pickOnly = true;   // setFocus の淡色化対象外 (不可視のままに保つ)
+      g.add(pm);
+      pickables.push(pm);
+    }
+  }
+}
+
 function buildWalls(room) {
   const g = group(room.key);
   const isBal = room.key.indexOf('balcony') === 0;
@@ -957,7 +992,7 @@ function buildWalls(room) {
         if (top < H - 1) seg(s, e, top, H);        // 鴨居上の壁
       }
       // ガラス/ドアパネルは開口を定義した部屋のエッジ処理時に1回だけ描く
-      if (o.room === room.key) buildOpeningPanel(g, o, s, e, sill, top, horiz, wc, outSign, c);
+      if (o.room === room.key) buildOpeningPanelTagged(g, o, s, e, sill, top, horiz, wc, outSign, c);   // ★v6.4
       cur = Math.max(cur, e);
     }
     if (cur < b) seg(cur, b, 0, H);
@@ -1526,7 +1561,7 @@ function buildAircon(a) {
   const y = a.bottomH ? a.bottomH + 13 : 218;   // ★v1.7 bottomH=下端高さ指定 (A2=200)。A5 特例は削除 (A5自体を廃止)
   const m = addBox(g, alongX ? 80 : 24, 26, alongX ? 24 : 80,
     a.pos[0] + d[0] * 13, y, a.pos[1] + d[1] * 13, 0xf6f7f8,
-    { kind: 'fixture', info: 'エアコン ' + a.no + ' (' + a.label + ')' });
+    { kind: 'fixture', info: 'エアコン ' + a.no + ' (' + a.label + ')', acId: a.id });   // ★v6.4 ID直結
   pickables.push(m);
 }
 
@@ -1551,7 +1586,7 @@ function buildStatic() {
     const r0 = openingRange(o);
     const dirSign = o.swing ? ((o.swing === 'S' || o.swing === 'E') ? 1 : -1) : 1;
     const wc = r0.c + dirSign * 2;   // 固定設備面のすぐ前 (開く側へ2cm)
-    buildOpeningPanel(group(o.room), o, r0.a, r0.b, o.sillH || 0,
+    buildOpeningPanelTagged(group(o.room), o, r0.a, r0.b, o.sillH || 0,   // ★v6.4
       Math.min((o.sillH || 0) + (o.height || 200), CH), r0.horiz, wc, -dirSign, r0.c);
   });
   R.fixtures.forEach(buildFixture);
@@ -1567,6 +1602,7 @@ function setFocus(dataKey) {
     roomGroups[k].traverse(function (obj) {
       if (!obj.isMesh && !obj.isLineSegments) return;
       if (obj.userData.doorId) return;   // ★v2.2[4] ドア・引き戸パネルは淡色化 (半透明化) しない
+      if (obj.userData.pickOnly) return;   // ★v6.4 クリック判定専用の不可視パネル (開口 OP-) は素材を触らない
       if (!obj.userData.baseMat) obj.userData.baseMat = obj.material;
       if (dim) {
         if (!obj.userData.dimMat) {
@@ -1787,6 +1823,19 @@ function initThree() {
         const d = doors[id];
         return d && (d.kind === 'bypass2' ? { open: d.open, state: d.state } : d.open);
       },
+      // ★v6.4 検証用: 要素ID から ツールチップに出る行をそのまま取る
+      tip: function (id) {
+        const idx = ensureNameIndex();
+        const a = idx.byId[String(id || '').trim().toUpperCase()];
+        if (!a) return null;
+        return { id: a.id, name: a.name, kind: a.kind, rows: tipRows(a, {}) };
+      },
+      tipAll: function (prefix) {
+        const idx = ensureNameIndex();
+        const p = String(prefix || '').trim().toUpperCase();
+        return idx.anchors.filter(function (a) { return !p || a.id.indexOf(p) === 0; })
+          .map(function (a) { return { id: a.id, name: a.name, kind: a.kind, rows: tipRows(a, {}) }; });
+      },
       // ★v6.2 検証用: オープン部 (ゴミ箱スペース) の内寸 / 収納内アイテム / スタック候補
       cavities: function () {
         return Object.keys(workItems).map(function (k) {
@@ -1804,11 +1853,32 @@ function initThree() {
           if (!isTrashItem(it)) return null;
           const host = it.insideOf ? workItems[it.insideOf] : null;
           const cav = host ? openCavityOf(host) : null;
+          const wc = cav ? cavityWorld(host, cav) : null;
           return { id: k, name: it.name, insideOf: it.insideOf || null,
                    host: host ? host.name : null,
-                   fit: cav ? cavityFit(it, host, cavityWorld(host, cav)) : null,
-                   x: it.x, y: it.y, z: it.z };
+                   fit: cav ? cavityFit(it, host, wc) : null,
+                   // ★v6.3 収納内のローカル位置 (insideX/insideZ) と 他の中身を除いた空き幅
+                   local: (it.insideX === undefined || it.insideX === null) ? null : { x: it.insideX, z: it.insideZ },
+                   remain: wc ? cavityRemain(k, it.insideOf, host, wc) : null,
+                   x: it.x, y: it.y, z: it.z, rotY: it.rotY || 0 };
         }).filter(Boolean);
+      },
+      // ★v6.3 検証用: 収納の空き幅 / 収納内アイテムの矢印キー移動 (キャビティ内クランプ経路)
+      cavRemain: function (hostId, selfId) {
+        const host = workItems[hostId], cav = host ? openCavityOf(host) : null;
+        if (!cav) return null;
+        return cavityRemain(selfId || null, hostId, host, cavityWorld(host, cav));
+      },
+      insideNudge: function (id, key, times) {
+        const prev = selectedItemId;
+        select(id);
+        for (let i = 0; i < (times || 1); i++) {
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: key, bubbles: true }));
+        }
+        selectedItemId = prev;
+        const it = workItems[id];
+        return { x: it.x, y: it.y, z: it.z, insideOf: it.insideOf || null,
+                 local: (it.insideX === undefined || it.insideX === null) ? null : { x: it.insideX, z: it.insideZ } };
       },
       stacks: function () {
         return Object.keys(workItems).map(function (k) {
@@ -3252,16 +3322,52 @@ function buildItemParts(g, it) {
           const need = LID_H * kY;                                    // フタ全開に必要な高さ (ゴミ箱底面から)
           const clr = r.dist === null ? null : (y0 + r.dist);         // 上方障害物の下端 (ゴミ箱底面から)
           const marg = clr === null ? null : Math.round((clr - need) * 10) / 10;
-          const ok = marg === null || marg >= 0;
+          // ★v6.3 左右クリアランス: 観音開きは全開で 外端スパン24cm = 本体側面 (w/2) より外へ 各1cm 出る。
+          //   収納に2つ並べたときに「両方のフタを開けられるか」を判定するため 左右へもレイを飛ばす。
+          //   レイは 天面プレートの高さ帯 (全幅22cmの傘部分) から出す = 隣の本体までの実距離がそのまま出る。
+          //   ヒット相手も両開きフタのゴミ箱なら 相手のフタも1cm出るので 必要量は2倍で見る。
+          const sideNeed = Math.max(LID_OUT * kX - w / 2, 0);
+          const wdir = function (sx) {
+            const o0 = g.localToWorld(new THREE.Vector3(0, 0, 0));
+            const o1 = g.localToWorld(new THREE.Vector3(sx, 0, 0));
+            return o1.sub(o0).normalize();
+          };
+          const sides = [-1, 1].map(function (sx) {
+            const org = [];
+            [yBody + plT * 0.5, (yBody + plT + LID_H * kY) / 2, LID_H * kY - 0.6].forEach(function (yy) {
+              [-0.32, 0, 0.32].forEach(function (tz) {
+                org.push(g.localToWorld(new THREE.Vector3(sx * (w / 2 - 0.2), yy, d * tz)));
+              });
+            });
+            const rr = scanObstacle(g, org, wdir(sx), 300);
+            const twin = /両開き/.test(rr.name || '');
+            const req = Math.round(sideNeed * (twin ? 2 : 1) * 10) / 10;
+            return { sx: sx, dist: rr.dist === null ? null : Math.round(rr.dist * 10) / 10, name: rr.name,
+                     req: req, twin: twin, ok: rr.dist === null || rr.dist >= req - 0.05,
+                     marg: rr.dist === null ? null : Math.round((rr.dist - req) * 10) / 10 };
+          });
+          const sideNg = sides.filter(function (s) { return !s.ok; });
+          const sideTxt = sides.map(function (s) {
+            return (s.sx < 0 ? '左' : '右') + (s.dist === null ? '空き' : s.dist + 'cm');
+          }).join(' / ');
+          const ok = (marg === null || marg >= 0) && !sideNg.length;
           return {
             remain: (ok && marg !== null) ? Math.max(marg, 0) : null,
-            label: ok ? (marg === null ? 'フタ全開60cm OK' : 'フタ開OK 余裕' + marg + 'cm') : '⚠フタが当たります',
+            side: sides,
+            label: ok ? (marg === null ? 'フタ全開60cm OK' : 'フタ開OK 余裕' + marg + 'cm')
+                      : (sideNg.length ? '⚠フタが横に当たります' : '⚠フタが当たります'),
             msg: ok
               ? 'ゴミ箱のフタを開けました (全開時 高さ' + LID_H + 'cm / 左右外端スパン' + (LID_OUT * 2) + 'cm)' +
                 (marg === null ? ' — 上方に障害物なし'
-                               : ' — 上方の' + (r.name || '障害物') + ' (高さ' + Math.round(clr) + 'cm) まで 余裕' + marg + 'cm')
-              : '⚠ フタが' + (r.name || '上方の障害物') + ' (高さ' + Math.round(clr) + 'cm) に当たります — ' +
-                'フタ全開には' + LID_H + 'cm 必要 (' + Math.abs(marg) + 'cm 不足)'
+                               : ' — 上方の' + (r.name || '障害物') + ' (高さ' + Math.round(clr) + 'cm) まで 余裕' + marg + 'cm') +
+                ' ｜ 左右 ' + sideTxt + ' (フタが外へ出る分 各' + (Math.round(sideNeed * 10) / 10) + 'cm 必要)'
+              : (sideNg.length
+                  ? '⚠ フタが' + (sideNg[0].sx < 0 ? '左' : '右') + 'の' + (sideNg[0].name || '障害物') +
+                    ' に当たります — 側面から ' + sideNg[0].req + 'cm 必要' +
+                    (sideNg[0].twin ? ' (相手も両開きフタなので2倍)' : '') +
+                    ' に対し ' + (sideNg[0].dist === null ? '-' : sideNg[0].dist) + 'cm ｜ 左右 ' + sideTxt
+                  : '⚠ フタが' + (r.name || '上方の障害物') + ' (高さ' + Math.round(clr) + 'cm) に当たります — ' +
+                    'フタ全開には' + LID_H + 'cm 必要 (' + Math.abs(marg) + 'cm 不足)')
           };
         }
       });
@@ -3863,6 +3969,95 @@ function cavityFit(it, ot, wc) {
            marginW: R1(cW - iW), marginD: R1(cD - iD), marginH: R1(cH - iH),
            overW: R1(Math.max(0, iW - cW)), overH: R1(Math.max(0, iH - cH)), overD: R1(Math.max(0, iD - cD)) };
 }
+// ═══ ★v6.3 収納の中での移動 (キャビティ内クランプ / 複数収納 / 空き幅) ═══
+//   v6.2 は「入れたら中央に固定」だったので 2個目が置けず、動かすと即取り出しになっていた。
+//   v6.3 は「キャビティの内側なら自由に動かせる / 外へ 20cm 引き出したら取り出し」に変える。
+const CAVITY_PULLOUT = 20;   // キャビティ外へこの距離 (cm) 以上 引き出したら「取り出し」
+
+// 収納内アイテムの ローカル位置 (収納の向き基準 cm)。insideX/insideZ 未設定 (v6.2 データ) は世界座標から逆算。
+function insideLocalOf(host, it) {
+  if (it.insideX !== undefined && it.insideX !== null && it.insideX !== '' &&
+      it.insideZ !== undefined && it.insideZ !== null && it.insideZ !== '') {
+    return { x: Number(it.insideX), z: Number(it.insideZ) };
+  }
+  const t = ((Number(host.rotY) || 0) * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  const dx = (Number(it.x) || 0) - (Number(host.x) || 0), dz = (Number(it.z) || 0) - (Number(host.z) || 0);
+  return { x: dx * c + dz * s, z: -dx * s + dz * c };
+}
+function insideWorldOf(host, lx, lz) {
+  const t = ((Number(host.rotY) || 0) * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  return { x: (Number(host.x) || 0) + lx * c - lz * s, z: (Number(host.z) || 0) + lx * s + lz * c };
+}
+function setInsideLocal(host, it) {
+  const t = ((Number(host.rotY) || 0) * Math.PI) / 180, c = Math.cos(t), s = Math.sin(t);
+  const dx = (Number(it.x) || 0) - (Number(host.x) || 0), dz = (Number(it.z) || 0) - (Number(host.z) || 0);
+  it.insideX = Math.round((dx * c + dz * s) * 10) / 10;
+  it.insideZ = Math.round((-dx * s + dz * c) * 10) / 10;
+}
+function clearInsideLocal(it) { it.insideX = null; it.insideZ = null; }
+// 収納を動かす/回す直前に、中のアイテムのローカル位置を現在の世界座標から焼き直しておく
+// (v6.2 データや 追加直後で insideX が無い場合に 1フレームぶんズレるのを防ぐ)
+function normalizeInsides(hostId) {
+  const host = workItems[hostId];
+  if (!host || !openCavityOf(host)) return;
+  Object.keys(workItems).forEach(function (k) {
+    if (workItems[k].insideOf === hostId) setInsideLocal(host, workItems[k]);
+  });
+}
+// キャビティ内へ収める位置クランプ。閉じた面 (側板・背板) は越えない。
+// 収まらない軸 (奥行が足りない等) だけ 奥に突き当てて開放側 (前) へ逃がす = cavityPlace と同じ考え方。
+function cavityClampPos(it, ot, wc, x, z) {
+  const a = itemAabb(it);
+  const ex = a.maxX - a.minX, ez = a.maxZ - a.minZ;
+  const fr = cavityFront(ot);
+  const cl = function (v, lo, hi, half, open) {
+    if (hi - lo >= half * 2) return Math.min(Math.max(v, lo + half), hi - half);
+    return open > 0 ? lo + half : (open < 0 ? hi - half : (lo + hi) / 2);
+  };
+  return { x: Math.round(cl(x, wc.minX, wc.maxX, ex / 2, fr.fx) * 10) / 10,
+           z: Math.round(cl(z, wc.minZ, wc.maxZ, ez / 2, fr.fz) * 10) / 10 };
+}
+// キャビティの「幅方向」= 前面に平行な水平軸 (前面が z 向きなら x)
+function cavityWidthAxis(ot) { return cavityFront(ot).fz !== 0 ? 'x' : 'z'; }
+// 同じ収納に入っている他アイテムの占有区間を除いた空き幅 (gap=最大連続空き / total=合計 / others=他アイテム数)
+function cavityRemain(selfId, hostId, ot, wc) {
+  const ax = cavityWidthAxis(ot);
+  const lo = ax === 'x' ? wc.minX : wc.minZ, hi = ax === 'x' ? wc.maxX : wc.maxZ;
+  const segs = [];
+  Object.keys(workItems).forEach(function (k) {
+    if (k === selfId) return;
+    const o = workItems[k];
+    if (o.insideOf !== hostId) return;
+    const b = itemAabb(o);
+    const s0 = Math.max(ax === 'x' ? b.minX : b.minZ, lo), s1 = Math.min(ax === 'x' ? b.maxX : b.maxZ, hi);
+    if (s1 > s0) segs.push([s0, s1]);
+  });
+  segs.sort(function (p, q) { return p[0] - q[0]; });
+  let cur = lo, gap = 0, total = 0;
+  segs.forEach(function (s) {
+    if (s[0] > cur) { gap = Math.max(gap, s[0] - cur); total += s[0] - cur; }
+    cur = Math.max(cur, s[1]);
+  });
+  if (hi > cur) { gap = Math.max(gap, hi - cur); total += hi - cur; }
+  const R1 = function (v) { return Math.round(v * 10) / 10; };
+  return { gap: R1(gap), total: R1(total), others: segs.length, span: R1(hi - lo) };
+}
+// キャビティ内で 他のアイテムと重ならない位置を探す (findFreeSpot と同じ流儀。幅方向優先で近い順に探す)
+function cavityFreeSpot(selfId, it, ot, wc) {
+  const ax = cavityWidthAxis(ot);
+  const ox = it.x, oz = it.z;
+  if (!collidesAny(selfId, it)) return true;
+  for (let step = 1; step <= 200; step++) {
+    for (let si = 0; si < 2; si++) {
+      const dd = (si ? -1 : 1) * step;
+      const p = cavityClampPos(it, ot, wc, ax === 'x' ? ox + dd : ox, ax === 'x' ? oz : oz + dd);
+      it.x = p.x; it.z = p.z;
+      if (!collidesAny(selfId, it)) return true;
+    }
+  }
+  it.x = ox; it.z = oz;
+  return false;
+}
 // 収まる位置 (幅方向は中央、奥行が余れば中央・足りなければ奥に突き当てて前へ逃がす)
 function cavityPlace(it, ot, wc) {
   const fr = cavityFront(ot);
@@ -3879,16 +4074,33 @@ function cavityPlace(it, ot, wc) {
 // ドラッグ中のゴミ箱が どのオープン部の圏内にいるか (一度入れたら離す距離は広め = マウントと同じ流儀)
 function cavityTargetFor(selfId, it) {
   if (!isTrashItem(it)) return null;
+  // ★v6.3 引き出し量で「中で移動」と「取り出し」を区別する。
+  //   既に入っている収納が最優先。キャビティ境界からの はみ出し距離が CAVITY_PULLOUT 以内なら
+  //   中で移動 (= クランプして留める)、超えたら取り出し (= target を返さない)。
+  const myId = (it.insideOf && workItems[it.insideOf]) ? it.insideOf : null;
+  if (myId) {
+    const mh = workItems[myId], mc = openCavityOf(mh);
+    if (mc) {
+      const mw = cavityWorld(mh, mc);
+      const cp = cavityClampPos(it, mh, mw, it.x, it.z);
+      const pull = Math.sqrt(Math.pow(it.x - cp.x, 2) + Math.pow(it.z - cp.z, 2));
+      if (pull <= CAVITY_PULLOUT) {
+        return { id: myId, host: mh, cav: mc, wc: mw, clamp: cp, pull: pull, keep: true };
+      }
+      return null;                                   // 20cm 以上引き出した = 取り出し
+    }
+  }
   let best = null;
   Object.keys(workItems).forEach(function (oid) {
-    if (oid === selfId) return;
+    if (oid === selfId || oid === myId) return;
     const ot = workItems[oid];
     const cav = openCavityOf(ot);
     if (!cav) return;
     const wc = cavityWorld(ot, cav);
-    const m = it.insideOf === oid ? 16 : 5;
+    const m = 5;
     if (it.x < wc.minX - m || it.x > wc.maxX + m || it.z < wc.minZ - m || it.z > wc.maxZ + m) return;
-    best = { id: oid, host: ot, cav: cav, wc: wc };
+    best = { id: oid, host: ot, cav: cav, wc: wc,
+             clamp: cavityClampPos(it, ot, wc, it.x, it.z), pull: 0, keep: false };
   });
   return best;
 }
@@ -3902,8 +4114,12 @@ function syncInsides(hostId) {
   Object.keys(workItems).forEach(function (k) {
     const o = workItems[k];
     if (o.insideOf !== hostId) return;
-    const p = cavityPlace(o, host, wc);
-    o.x = p.x; o.z = p.z; o.y = p.y;
+    // ★v6.3 中央固定ではなく「収納内のローカル位置」を保ったまま追従する (複数入る + 中で動かせる)
+    const lp = insideLocalOf(host, o);
+    const wp = insideWorldOf(host, lp.x, lp.z);
+    const cp = cavityClampPos(o, host, wc, wp.x, wp.z);
+    o.x = cp.x; o.z = cp.z; o.y = wc.y0;
+    setInsideLocal(host, o);
     const m = furnMeshes[k];
     if (m) syncItemMesh(m, o);
   });
@@ -3913,9 +4129,16 @@ function reportCavityChange(drag, it) {
   const now = it.insideOf || null;
   if (now && now !== drag.wasInside && drag.cavFit) {
     const host = workItems[now], cav = host ? openCavityOf(host) : null, f = drag.cavFit;
+    // ★v6.3 「残り幅」は 既に入っている他のアイテムを差し引いた **最大の連続空き幅** で出す
+    //        (= もう1個入るかの判断材料。単純な 内寸-1個分 ではない)
+    const rw = (host && cav) ? cavityRemain(drag.itemId, now, host, cavityWorld(host, cav)) : null;
     let msg = '🗑 ' + (cav ? cav.label : (host && host.name) || '収納') + ' に収まりました' +
       ' — 内寸 ' + f.cW + '×' + f.cD + '×' + f.cH + ' / ゴミ箱 ' + f.iW + '×' + f.iD + '×' + f.iH +
       ' (残り 幅' + f.marginW + 'cm・上' + f.marginH + 'cm)';
+    if (rw) {
+      msg += ' ｜ この収納に計' + (rw.others + 1) + '点 / 残り幅 ' + rw.gap + 'cm';
+      if (rw.gap >= f.iW) msg += ' (同じゴミ箱がもう1個入ります)';
+    }
     if (f.overD > 0) msg += ' ⚠奥行が' + f.overD + 'cm 前にはみ出します';
     toast(msg);
     return;
@@ -3923,6 +4146,13 @@ function reportCavityChange(drag, it) {
   if (!now && drag.wasInside) {
     const host = workItems[drag.wasInside];
     toast('🗑 ' + ((host && host.name) || '収納') + ' から取り出しました');
+    return;
+  }
+  if (!now && drag.cavNg && drag.cavNg.full) {          // ★v6.3 サイズは収まるが 先客で空きが無い
+    const f = drag.cavNg.fit, rw = drag.cavNg.remain;
+    toast('⚠ ' + drag.cavNg.label + ' に空きがありません — 残り幅 ' +
+          (rw ? rw.gap : '?') + 'cm に対し ゴミ箱の幅 ' + f.iW + 'cm' +
+          (rw ? ' (既に' + rw.others + '点 入っています)' : ''));
     return;
   }
   if (!now && drag.cavNg) {
@@ -4198,13 +4428,19 @@ function openItemSheet() {
   let insideBlock = '';
   if (it.insideOf && workItems[it.insideOf]) {
     const host = workItems[it.insideOf], cav = openCavityOf(host);
-    const ft = cav ? cavityFit(it, host, cavityWorld(host, cav)) : null;
+    const iwc = cav ? cavityWorld(host, cav) : null;
+    const ft = iwc ? cavityFit(it, host, iwc) : null;
+    const rw = iwc ? cavityRemain(selectedItemId, it.insideOf, host, iwc) : null;   // ★v6.3 他の中身を除いた空き幅
     insideBlock =
       '<div class="form-group"><label class="form-label">収納スペース</label>' +
       '<div class="dim-note">🗑 「' + esc(cav ? cav.label : (host.name || '収納')) + '」に収まっています' +
       (ft ? ' (内寸 ' + ft.cW + '×' + ft.cD + '×' + ft.cH + ' / 残り 幅' + ft.marginW + 'cm・奥行' +
             ft.marginD + 'cm・上' + ft.marginH + 'cm)' : '') +
-      '。収納を動かすと一緒に動きます。フタをクリックすると開閉+上方の干渉判定ができます</div>' +
+      (rw ? '<br>📦 この収納に計' + (rw.others + 1) + '点 / <b>残り幅 ' + rw.gap + 'cm</b> (最大の連続空き' +
+            (ft && rw.gap >= ft.iW ? ' — 同じ幅' + ft.iW + 'cm がもう1個入ります' : '') + ')' : '') +
+      '<br>↔ <b>ドラッグ・矢印キーで収納の中を動かせます</b> (側板・背板は越えません / 手前へ ' +
+      CAVITY_PULLOUT + 'cm 以上 引き出すと取り出し)。収納を動かすと相対位置のまま一緒に動きます。' +
+      'フタをクリックすると開閉+上下左右の干渉判定ができます</div>' +
       '<button class="btn-secondary" style="width:100%;margin-top:6px;" onclick="ejectInside()">⤓ 収納から取り出す</button></div>';
   }
   // ★v6.2 置く段 (天面 / 内部の棚板) の切替。内寸に収まる段だけが候補に出る
@@ -4229,6 +4465,7 @@ function openItemSheet() {
     dimCell('幅W (cm)', 'w') + dimCell('奥行D (cm)', 'd') + dimCell('高さH (cm)', 'h') +
     '</div>' +
     (fixedDims ? '<div class="dim-note">📐 カタログ商品の正式寸法のためサイズは変更できません</div>' : '') +
+    itemDimSummaryHtml(selectedItemId, it) +   // ★v6.4 W×D×H / 回転角 / 床からの高さ / 収納内・マウント状態
     colorBlock + floorHBlock + mattressBlock + vesaBlock + mountBlock + insideBlock + levelBlock +
     '<div class="form-row">' +
     (colorOpts ? '' : '<div class="form-group"><label class="form-label">色</label><input type="color" class="form-input" value="' + esc(it.color || '#b9a488') + '" oninput="updItem(\'color\', this.value)"></div>') +
@@ -4264,6 +4501,7 @@ window.ejectInside = function () {
   if (!it || !it.insideOf) return;
   const host = workItems[it.insideOf], cav = host ? openCavityOf(host) : null;
   it.insideOf = null;
+  clearInsideLocal(it);                // ★v6.3 収納内ローカル位置もクリア
   it.y = 0;
   if (cav) {
     const wc = cavityWorld(host, cav), fr = cavityFront(host), a = itemAabb(it);
@@ -4442,6 +4680,7 @@ window.rotateItem = function () {
   if (isMountedItem(it)) { toast('マウント中はアーム側を回転してください (モニターは追従します)'); return; }   // ★v4.1
   const prevRot = it.rotY || 0, px = it.x, pz = it.z;
   const rig = overlapState(selectedItemId, it);   // ★v2.2[6] 回転前から重なっている相手は免除
+  normalizeInsides(selectedItemId);               // ★v6.3 回す前に 中のアイテムのローカル位置を確定
   it.rotY = (prevRot + 90) % 360;
   clampItem(it);
   if (blockedAny(selectedItemId, it, rig)) {                   // ★v1.9 家具+壁ポリゴン+固定設備
@@ -4452,6 +4691,7 @@ window.rotateItem = function () {
   const m = furnMeshes[selectedItemId];
   if (m) syncItemMesh(m, it);
   syncMounts(selectedItemId);   // ★v4.1 アームを回したらマウント中モニターも向きごと追従
+  syncInsides(selectedItemId);  // ★v6.3 収納を回したら 中のアイテムも相対位置のまま追従
   markDirty();
 };
 window.duplicateItem = function () {
@@ -4461,7 +4701,29 @@ window.duplicateItem = function () {
   if (copy.mounted) clearMountPose(copy, true);   // ★v4.1 複製はマウントを引き継がない (1アーム=1モニター)
   copy.x += 20; copy.z += 20;
   clampItem(copy);
-  if (!findFreeSpot(null, copy)) toast('空きスペースが無いため重なって配置されました。移動してください');  // ★v1.8
+  // ★v6.3 収納の中のアイテムを複製したら 同じ収納の空きへ入れる (「エトナの下に2つ」 の動線)。
+  //        空きが無ければ収納の外に出して通常配置 + 警告。
+  let cavPlaced = false;
+  if (copy.insideOf && workItems[copy.insideOf]) {
+    const dh = workItems[copy.insideOf], dc = openCavityOf(dh);
+    if (dc) {
+      const dwc = cavityWorld(dh, dc);
+      const dft = cavityFit(copy, dh, dwc);
+      const dp = cavityClampPos(copy, dh, dwc, copy.x, copy.z);
+      copy.x = dp.x; copy.z = dp.z; copy.y = dwc.y0;
+      if (dft.ok && cavityFreeSpot(null, copy, dh, dwc)) {
+        setInsideLocal(dh, copy);
+        cavPlaced = true;
+        const drw = cavityRemain(null, copy.insideOf, dh, dwc);
+        toast('🗑 ' + dc.label + ' に2個目を入れました — 残り幅 ' + drw.gap + 'cm');
+      }
+    }
+    if (!cavPlaced) {
+      copy.insideOf = null; clearInsideLocal(copy); copy.y = 0;
+      toast('⚠ 収納に空きが無いため 外に出して配置しました');
+    }
+  }
+  if (!cavPlaced && !findFreeSpot(null, copy)) toast('空きスペースが無いため重なって配置されました。移動してください');  // ★v1.8
   const id = genItemId();
   workItems[id] = copy;
   itemMeshBuild(id, copy);
@@ -4655,6 +4917,7 @@ function beginDrag(itemId, it, p) {
     const gm = furnMeshes[itemId];
     if (gm) syncItemMesh(gm, it);
   }
+  normalizeInsides(itemId);            // ★v6.3 収納を掴んだら 中のアイテムのローカル位置を確定させる
   const sup0 = supportTopFor(itemId, it);
   const bed0 = bedUnder(itemId, it);   // ★v2.0 ベッド床板面に載っている状態も autoY 対象
   const y0 = Number(it.y) || 0;
@@ -4691,23 +4954,46 @@ function resolveDragPos(drag, it) {
   //   内寸に収まるならオープン部の内側へ吸着 (insideOf)。収まらないサイズは吸着せず警告 (確定時にトースト)。
   //   離れる方向へドラッグすると解除され、通常の床置きに戻る (モニターアームのマウント解除と同じ流儀)。
   if (isTrashItem(it)) {
+    // ★v6.3 収納内ドラッグ: キャビティの内側なら境界クランプで自由に移動、
+    //   外へ CAVITY_PULLOUT (20cm) 以上引き出したら取り出し。中のアイテム同士は通常の AABB 衝突。
     const ct = cavityTargetFor(drag.itemId, it);
     if (ct) {
       const ft = cavityFit(it, ct.host, ct.wc);
       if (ft.ok) {
-        const wasIn = it.insideOf;
-        it.insideOf = ct.id;
-        const pos = cavityPlace(it, ct.host, ct.wc);
-        it.x = pos.x; it.z = pos.z; it.y = pos.y;
-        if (wasIn !== ct.id) drag.ig = overlapState(drag.itemId, it);
-        drag.vx = it.x; drag.vz = it.z; drag.vy = it.y;
-        drag.cavFit = ft; drag.cavNg = null;
-        return;                                  // 収納の中なので 部屋ポリゴン/設備/家具の判定は不要
+        const wasIn = it.insideOf === ct.id;
+        const cp = ct.clamp || cavityClampPos(it, ct.host, ct.wc, it.x, it.z);
+        const bx = it.x, bz = it.z, by = it.y;
+        it.insideOf = ct.id; it.x = cp.x; it.z = cp.z; it.y = ct.wc.y0;
+        let okPos = true;
+        if (!wasIn) {
+          // 入れる瞬間: 既に入っているアイテムと重なるなら 空いている位置を探す (findFreeSpot と同じ流儀)
+          if (collidesAny(drag.itemId, it)) okPos = cavityFreeSpot(drag.itemId, it, ct.host, ct.wc);
+          if (okPos) drag.ig = overlapState(drag.itemId, it);
+        } else if (collidesAny(drag.itemId, it, drag.ig && drag.ig.items)) {
+          const nz = it.z;                          // 中の他アイテムに当たったら 軸ごとに滑らせる (押し込めない)
+          it.z = drag.vz;
+          if (collidesAny(drag.itemId, it, drag.ig && drag.ig.items)) {
+            it.x = drag.vx; it.z = nz;
+            if (collidesAny(drag.itemId, it, drag.ig && drag.ig.items)) { it.x = drag.vx; it.z = drag.vz; }
+          }
+        }
+        if (okPos) {
+          setInsideLocal(ct.host, it);
+          drag.vx = it.x; drag.vz = it.z; drag.vy = it.y;
+          drag.cavFit = ft; drag.cavNg = null;
+          return;                                  // 収納の中なので 部屋ポリゴン/設備/家具の判定は不要
+        }
+        it.insideOf = null; it.x = bx; it.z = bz; it.y = by;   // 空きが無い → 入れずに通常処理へ
+        clearInsideLocal(it);
+        drag.cavNg = { id: ct.id, label: ct.cav.label, fit: ft, full: true,
+                       remain: cavityRemain(drag.itemId, ct.id, ct.host, ct.wc) };
+      } else {
+        drag.cavNg = { id: ct.id, label: ct.cav.label, fit: ft, full: false };
       }
-      drag.cavNg = { id: ct.id, label: ct.cav.label, fit: ft };
     }
     if (it.insideOf && (!ct || ct.id !== it.insideOf)) {
       it.insideOf = null;
+      clearInsideLocal(it);
       it.y = 0;
       drag.ig = overlapState(drag.itemId, it);     // 取り出し直後に生じた重なりは分離まで免除
     }
@@ -4919,33 +5205,267 @@ function handleClick(e) {
   }
   const info = pickInfo(e);
   if (info && info.drawerId) { toggleDrawer(info.drawerId); return; }   // ★v2.3[9] キッチン引き出し
-  if (info && info.doorId) { toggleDoor(info.doorId, info.panelIdx); return; }   // ★v2.2[8] ドアはクリック=開閉 ★v2.7 引違いはクリックしたパネル側が開く
+  if (info && info.doorId) { toggleDoor(info.doorId, info.panelIdx); showTooltip(e, info); return; }   // ★v2.2[8] ドアはクリック=開閉 ★v2.7 引違いはクリックしたパネル側が開く
   if (info) { showTooltip(e, info); return; }
   if (selectedItemId) deselect();
 }
 
-function showTooltip(e, ud) {
-  const tt = document.getElementById('tooltip');
-  let html = '';
-  // ★v3.9 要素ID: ツールチップの先頭に 【W-LDK-S1】LDK南壁① の形で必ず出す
-  const nm = nameOfInfo(ud);
-  const idLine = nm ? '<div class="tt-title">【' + esc(nm.id) + '】' + esc(nm.name || '') + '</div>' : '';
-  if (ud.kind === 'outlet') {
-    const o = ud.info;
-    const parts = [(o.caps || 2) + '口'];
-    if (o.tv) parts.push('テレビ端子');
-    if (o.lan) parts.push('LAN');
-    html = '<div class="tt-title">🔌 ' + esc(nm ? '【' + nm.id + '】' : '') + 'コンセント No.' + o.no + '</div>' +
-      '<div class="tt-body">' + parts.join(' + ') + '<br>' + esc(o.label || '') +
-      '<br>高さ約' + (o.h || 25) + 'cm' + (o.est ? ' (位置は推定)' : '') + '</div>';
-  } else {
-    html = idLine + '<div class="tt-body">' + esc(typeof ud.info === 'string' ? ud.info : (ud.info && ud.info.label) || '') + '</div>';
+
+// ═══════ ★v6.4 ツールチップ 寸法表示 (全要素タイプで 長さ・高さを出す) ═══════
+// 【要望】「各パーツのIDを押した際に長さや高さが分かるようにして。今は一部のものしか記載されてない」
+//   - 数値は cm・小数第1位まで (整数なら整数表示)。ROOM_DATA に値があるものはそれを正とする。
+//   - 行数が増えるので <br> 区切りの複数行にし、モバイル (375px) でも読める長さ (最大 6 行) に収める。
+function tipN(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Math.round(Number(v) * 10) / 10;
+  if (!isFinite(n)) return null;
+  return (Math.abs(n - Math.round(n)) < 1e-9) ? String(Math.round(n)) : n.toFixed(1);
+}
+function tipRoomJa(key) { return NAME_ROOM_SHORT[key] || key || ''; }
+function tipAxisRange(horiz, a, b) { return (horiz ? 'x' : 'y') + tipN(a) + '〜' + tipN(b) + 'cm'; }
+function tipClean(s) { return String(s || '').split('★')[0].replace(/\s+/g, ' ').trim(); }
+
+// 開口 (ドア/窓/開口) が どの部屋の どの向きの壁に載っているか
+function tipOpeningDir(o) {
+  const r0 = openingRange(o);
+  const ws = (ensureNameIndex().walls) || [];
+  const w = ws.find(function (x) {
+    return x.room === o.room && x.horiz === r0.horiz && Math.abs(x.c - r0.c) <= 12 &&
+           Math.min(x.to, r0.b) - Math.max(x.from, r0.a) > -1.0;
+  });
+  if (w) return w.dir;
+  const room = R.rooms.find(function (x) { return x.key === o.room; });   // 壁区画が無い場合 (固定設備面の建具等) の保険
+  if (!room) return null;
+  const mid = (r0.a + r0.b) / 2;
+  const inNeg = pointInPoly(r0.horiz ? [mid, r0.c - 2] : [r0.c - 2, mid], room.poly);
+  return r0.horiz ? (inNeg ? 'S' : 'N') : (inNeg ? 'E' : 'W');
+}
+function tipOpeningPos(o) {
+  const r0 = openingRange(o), d = tipOpeningDir(o);
+  return tipRoomJa(o.room) + (d ? ' ' + NAME_DIR_JA[d] + '側' : '') + ' / ' + tipAxisRange(r0.horiz, r0.a, r0.b);
+}
+// 建具の種類 (開き戸・両開き・片引き・引違い)
+function tipDoorKind(o) {
+  const lb = (o.label || '') + ' ' + (o.name || '');
+  if (o.type === 'sliding') {
+    if (o.panels >= 2 || o.bypass) {
+      return '引違い戸 (' + (o.panels || 2) + '枚' +
+             (o.panelW ? '・各' + tipN(o.panelW) + 'cm' : '') + ')';
+    }
+    return (o.outsetRail ? 'アウトセット' : '') + '片引き戸 (1枚)';
   }
-  tt.innerHTML = html;
+  const leaves = o.leaves || (/両開き/.test(lb) ? 2 : 1);
+  if (leaves >= 4) return '両開き扉 2組' + leaves + '枚';
+  if (leaves === 2) return '両開き扉 (2枚)';
+  if (/折戸/.test(lb)) return '折戸';
+  return '開き戸 (1枚)';
+}
+// 開閉方向 (吊元・スライド方向)
+function tipDoorMotion(o) {
+  const D = NAME_DIR_JA;
+  if (o.type === 'sliding') {
+    if (o.panels >= 2 || o.bypass) return '開閉: 引違い (クリックしたパネル側が開く)';
+    return '開閉: ' + (o.slideDir ? D[o.slideDir] + 'へスライド' : 'スライド (方向データなし)');
+  }
+  const r0 = openingRange(o), parts = [];
+  let sw = o.swing ? D[o.swing] + '側へ開く' : null;
+  if (!sw) {
+    const m = /([^\/(（、]{1,12})へ開く/.exec(o.label || '');
+    if (m) sw = tipClean(m[1]) + 'へ開く';
+  }
+  if (sw) parts.push(sw);
+  const he = (o.hinge === 'e') || /ヒンジ南/.test(o.label || '');
+  const hs = (o.hinge === 's');
+  if (he || hs) parts.push('吊元: ' + (he ? (r0.horiz ? '東' : '南') : (r0.horiz ? '西' : '北')) + '端');
+  return parts.length ? ('開閉: ' + parts.join(' / ')) : null;
+}
+// 窓の種類
+function tipWindowKind(o) {
+  const lb = (o.label || '') + ' ' + (o.name || ''), k = [];
+  if (/FIX|はめ殺し/i.test(lb)) k.push('FIX (はめ殺し)');
+  if (/すべり出し/.test(lb)) k.push((/縦すべり出し/.test(lb) ? '縦' : '') + 'すべり出し窓');
+  if (/掛け出し/.test(lb)) k.push('掛け出し窓');
+  if (/掃き出し/.test(lb)) k.push('掃き出し窓');
+  if (/腰窓/.test(lb)) k.push('腰窓');
+  if (/引違い/.test(lb)) k.push('引違い');
+  if (!k.length) {
+    const s = Number(o.sillH) || 0;
+    k.push(s < 5 ? '掃き出し窓' : (s >= 140 ? '高所窓' : '腰窓'));
+  }
+  return k.join('・');
+}
+// 設備の平面外形 (rect 優先、poly は外接矩形)
+function tipFixBox(f) {
+  if (f.rect) return { x0: f.rect[0], y0: f.rect[1], w: f.rect[2], d: f.rect[3] };
+  if (f.poly && f.poly.length) {
+    const xs = f.poly.map(function (p) { return p[0]; }), ys = f.poly.map(function (p) { return p[1]; });
+    const x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    const y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    return { x0: x0, y0: y0, w: x1 - x0, d: y1 - y0, poly: true };
+  }
+  return null;
+}
+// 設備の内寸 (ROOM_DATA に内寸フィールドは無いので、アプリ側が持つ実測内寸を使う)
+function tipFixInner(f) {
+  if (f.type === 'washer_pan' && typeof WASHER_PAN !== 'undefined') {
+    return '内寸: ' + tipN(WASHER_PAN.inner[2]) + ' × ' + tipN(WASHER_PAN.inner[3]) +
+           'cm (パン上面→洗濯水栓 ' + tipN(WASHER_PAN.faucetClr) + 'cm)';
+  }
+  return null;
+}
+
+// 要素の種別ごとに ツールチップ本文の行を組み立てる (プレーンテキストの配列)
+function tipRows(a, ud) {
+  const rows = [], D = NAME_DIR_JA;
+  if (!a) return rows;
+  // ── 壁 W- (現状維持: 区間・長さ・高さ・目印)
+  if (a.kind === 'wall' && a.wall) {
+    const w = a.wall;
+    rows.push('区間: ' + tipAxisRange(w.horiz, w.from, w.to));
+    rows.push('長さ: ' + tipN(w.length) + 'cm / 高さ: ' + tipN(w.height) + 'cm');
+    rows.push('位置: ' + tipRoomJa(w.room) + ' ' + (D[w.dir] || '') + '側');
+    if (w.feature) rows.push('目印: ' + w.feature);
+    return rows;
+  }
+  const o = a.src;
+  if (!o) return rows;
+  // ── 開口 D- / WIN- / OP-
+  if (a.kind === 'opening') {
+    const sill = Number(o.sillH) || 0, hh = Number(o.height) || 0;
+    if (o.type === 'window') {
+      rows.push('幅: ' + tipN(o.width) + 'cm / 高さ: ' + tipN(hh) + 'cm');
+      rows.push('床から: 下端 ' + tipN(sill) + 'cm 〜 上端 ' + tipN(sill + hh) + 'cm');
+      rows.push('種類: ' + tipWindowKind(o));
+      rows.push('位置: ' + tipOpeningPos(o));
+    } else if (o.type === 'open') {
+      rows.push('開口幅: ' + tipN(o.width) + 'cm / 高さ: ' + tipN(hh) + 'cm');
+      if (sill > 0.05) rows.push('床から: ' + tipN(sill) + 'cm 上げた位置から');
+      rows.push('用途: ' + (a.name || '開口') + ' (建具なしの通り抜け)');
+      rows.push('位置: ' + tipOpeningPos(o));
+    } else {
+      rows.push('開口幅: ' + tipN(o.width) + 'cm / 高さ: ' + tipN(hh) + 'cm');
+      rows.push('種類: ' + tipDoorKind(o));
+      const mo = tipDoorMotion(o);
+      if (mo) rows.push(mo);
+      rows.push('ペットくぐり戸: ' + (o.petDoor ? 'あり' : 'なし'));
+      rows.push('位置: ' + tipOpeningPos(o));
+    }
+    if (o.est) rows.push('※ 寸法は推定値');
+    return rows;
+  }
+  // ── 設備 F-
+  if (a.kind === 'fixture') {
+    const st = (typeof FIX_STYLE !== 'undefined' && FIX_STYLE[o.type]) || null;
+    const topH = Number(o.h) || (st && st.h) || 0;
+    const botH = Number(o.bottomH) || 0;
+    const bx = tipFixBox(o);
+    if (bx) {
+      rows.push('幅W ' + tipN(bx.w) + ' × 奥行D ' + tipN(bx.d) +
+                ' × 高さH ' + tipN(Math.max(topH - botH, 0)) + 'cm' + (bx.poly ? ' (外接矩形)' : ''));
+    } else {
+      rows.push('高さH ' + tipN(topH) + 'cm');
+    }
+    rows.push(botH > 0.05
+      ? ('取付: 床から ' + tipN(botH) + 'cm 〜 ' + tipN(topH) + 'cm')
+      : ('設置: 床置き (床から 0 〜 ' + tipN(topH) + 'cm)'));
+    const inner = tipFixInner(o);
+    if (inner) rows.push(inner);
+    if (bx) {
+      rows.push('位置: ' + tipRoomJa(o.room) + ' / x' + tipN(bx.x0) + '〜' + tipN(bx.x0 + bx.w) +
+                ', y' + tipN(bx.y0) + '〜' + tipN(bx.y0 + bx.d));
+    }
+    if (o.est) rows.push('※ 寸法は推定値');
+    return rows;
+  }
+  // ── コンセント C-
+  if (a.kind === 'outlet') {
+    const caps = [(o.caps || 2) + '口'];
+    if (o.tv) caps.push('テレビ端子');
+    if (o.lan) caps.push('LAN');
+    rows.push('口数: ' + caps.join(' + '));
+    rows.push('取付高さ: 床から ' + tipN(o.h || 25) + 'cm (プレート中心)');
+    rows.push('位置: ' + tipRoomJa(o.room) + ' ' + (D[o.wallSide] || '') + '壁 / x' +
+              tipN(o.pos[0]) + ', y' + tipN(o.pos[1]));
+    if (o.label) rows.push('目印: ' + tipClean(o.label));
+    if (o.est) rows.push('※ 位置は推定');
+    return rows;
+  }
+  // ── エアコン AC-
+  if (a.kind === 'aircon') {
+    const bot = Number(o.bottomH) || 0;
+    rows.push('位置: ' + tipRoomJa(o.room) + ' ' + (D[o.wallSide] || '') + '壁 / x' +
+              tipN(o.pos[0]) + ', y' + tipN(o.pos[1]));
+    rows.push(bot
+      ? ('下端高さ: 床から ' + tipN(bot) + 'cm (上端 ' + tipN(bot + 26) + 'cm)')
+      : '下端高さ: 未実測 → 3Dは天井際 (床から 205〜231cm) で表示');
+    rows.push('表示サイズ: 幅80 × 奥行24 × 高さ26cm (壁掛け機の目安)');
+    if (o.label) rows.push('目印: ' + tipClean(o.label));
+    return rows;
+  }
+  // ── 照明 L- (3D には描画していないので ID検索経由で参照される)
+  if (a.kind === 'light') {
+    rows.push('種類: ' + (o.type === 'downlight' ? 'ダウンライト (天井埋込)'
+             : o.type === 'ceiling_socket' ? '引掛シーリング (器具取付口)' : o.type));
+    rows.push('位置: ' + tipRoomJa(o.room) + ' / x' + tipN(o.pos[0]) + ', y' + tipN(o.pos[1]));
+    rows.push('取付高さ: 天井 (床から ' + tipN(CH) + 'cm)');
+    if (o.est) rows.push('※ 位置は推定');
+    return rows;
+  }
+  return rows;
+}
+function tipIcon(a) {
+  if (!a) return '';
+  if (a.kind === 'wall') return '🧱';
+  if (a.kind === 'outlet') return '🔌';
+  if (a.kind === 'aircon') return '❄️';
+  if (a.kind === 'light') return '💡';
+  if (a.kind === 'opening') return (a.src && a.src.type === 'window') ? '🪟' : '🚪';
+  return '📦';
+}
+// 配置した家具 (カタログ商品) の 寸法サマリー (家具シートの先頭に出す)
+function itemDimSummaryHtml(id, it) {
+  if (!it) return '';
+  const rows = [];
+  rows.push('幅W ' + tipN(it.w) + ' × 奥行D ' + tipN(it.d) + ' × 高さH ' + tipN(it.h) + 'cm');
+  const rot = ((Math.round(Number(it.rotY) || 0) % 360) + 360) % 360;
+  const y = Number(it.y) || 0, h = Number(it.h) || 0;
+  rows.push('回転: ' + rot + '° / 床から: ' + tipN(y) + 'cm' + (y < 0.05 ? ' (床置き)' : '') +
+            ' / 上端: ' + tipN(y + h) + 'cm');
+  if (it.insideOf && workItems[it.insideOf]) {
+    const host = workItems[it.insideOf], cav = openCavityOf(host);
+    rows.push('収納: 「' + (cav ? cav.label : (host.name || '収納')) + '」の中');
+  }
+  if (isMountedItem(it)) {
+    const arm = workItems[it.mountArm];
+    rows.push('マウント: 「' + (arm ? (arm.name || 'モニターアーム') : 'モニターアーム') +
+              '」のアーム上 (画面中心 床から ' + tipN(y) + 'cm)');
+  }
+  return '<div class="dim-note">📐 ' + rows.map(esc).join('<br>') + '</div>';
+}
+
+function showTooltip(e, ud) {
+  // ★v6.4 全要素タイプで 寸法 (長さ・高さ・床からの高さ・位置) を出す。
+  //   行の組み立ては tipRows() 側に集約 (ID検索 / デバッグAPI と共通化)。
+  const tt = document.getElementById('tooltip');
+  const a = nameOfInfo(ud);
+  const raw = typeof ud.info === 'string' ? ud.info : (ud.info && ud.info.label) || '';
+  const title = a
+    ? (tipIcon(a) + ' 【' + esc(a.id) + '】' + esc(a.name || ''))
+    : esc(tipClean(raw).split('(')[0].trim() || '要素');
+  let rows = tipRows(a, ud).map(esc);
+  if (!rows.length) rows = [esc(tipClean(raw) || raw)];
+  // クリックしたのが 本体ではなく 付属部材 (三方枠・上レール・戸袋等) の時はそれも示す
+  if (a && a.kind === 'opening' && raw && a.src && raw !== a.src.label) {
+    rows.push(esc('クリック部材: ' + tipClean(raw).split('(')[0].trim()));
+  }
+  tt.innerHTML = '<div class="tt-title">' + title + '</div>' +
+                 '<div class="tt-body">' + rows.join('<br>') + '</div>';
   tt.style.display = 'block';
+  // ★v6.4 行数が増えたので 実サイズでクランプする (モバイルで下端が切れないように)
   const vp = document.getElementById('viewport').getBoundingClientRect();
-  tt.style.left = Math.max(4, Math.min(e.clientX - vp.left + 10, vp.width - 270)) + 'px';
-  tt.style.top = Math.max(4, Math.min(e.clientY - vp.top + 10, vp.height - 110)) + 'px';
+  const tw = tt.offsetWidth || 260, th = tt.offsetHeight || 110;
+  tt.style.left = Math.max(4, Math.min(e.clientX - vp.left + 10, vp.width - tw - 6)) + 'px';
+  tt.style.top = Math.max(4, Math.min(e.clientY - vp.top + 10, vp.height - th - 6)) + 'px';
 }
 function hideTooltip() {
   const tt = document.getElementById('tooltip');
@@ -5081,7 +5601,7 @@ function ensureNameIds() {
 // ラベル対象アンカー一覧を1度だけ組み立てる (要素の増減が無いので使い回し)
 function buildNameIndex() {
   const anchors = [], byId = {}, byLabel = {};
-  const add = function (a) { anchors.push(a); byId[a.id] = a; };
+  const add = function (a) { anchors.push(a); byId[a.id] = a; return a; };   // ★v6.4 byLabel も anchor 実体を指す
   ensureNameIds();
   const walls = deriveWallSegs();
   walls.forEach(function (w) {
@@ -5100,34 +5620,43 @@ function buildNameIndex() {
     const sill = o.sillH || 0, top = Math.min(sill + (o.height || 200), CH);
     const y = Math.max(20, Math.min(212, (sill + top) / 2));
     const cls = o.type === 'window' ? 'nl-win' : (o.type === 'open' ? 'nl-open' : 'nl-door');
-    add({ id: o.id, name: o.name || nameShortJa(o.label, o.type), kind: 'opening', cls: cls, room: o.room,
-          pos: r0.horiz ? [mid, y, r0.c] : [r0.c, y, mid], pri: 4,
+    const oa = add({ id: o.id, name: o.name || nameShortJa(o.label, o.type), kind: 'opening', cls: cls, room: o.room,
+          pos: r0.horiz ? [mid, y, r0.c] : [r0.c, y, mid], pri: 4, src: o,   // ★v6.4 src = ROOM_DATA の開口オブジェクト
           detail: (o.name || nameShortJa(o.label, o.type)) + ' / 幅' + o.width + 'cm' });
-    if (o.label) byLabel[o.label] = { id: o.id, name: o.name || nameShortJa(o.label, o.type) };
+    if (o.label) byLabel[o.label] = oa;
   });
   R.fixtures.forEach(function (f) {
     if (!f.id) return;
     const nm = f.name || f.shortLabel || nameShortJa(f.label, f.type);
+    let fa = null;
     if (FIX_STYLE[f.type]) {
-      add({ id: f.id, name: nm, kind: 'fixture', cls: 'nl-fix', room: f.room,
-            pos: nameFixtureAnchor(f), pri: f.minor ? 1 : 2, minor: !!f.minor,
+      fa = add({ id: f.id, name: nm, kind: 'fixture', cls: 'nl-fix', room: f.room,
+            pos: nameFixtureAnchor(f), pri: f.minor ? 1 : 2, minor: !!f.minor, src: f,   // ★v6.4
             detail: nm + (f.rect ? ' / ' + f.rect[2] + '×' + f.rect[3] + 'cm' : '') });
     }
-    if (f.label) byLabel[f.label] = { id: f.id, name: nm };
+    if (f.label) byLabel[f.label] = fa || { id: f.id, name: nm, kind: 'fixture', room: f.room, src: f };
   });
   R.outlets.forEach(function (u) {
     if (!u.id) return;
     const d = outletInward(u.wallSide);
     add({ id: u.id, name: u.name || ('コンセント No.' + u.no), kind: 'outlet', cls: 'nl-out', room: u.room,
-          pos: [u.pos[0] + d[0] * 4, (u.h || 25) + 9, u.pos[1] + d[1] * 4], pri: 1,
+          pos: [u.pos[0] + d[0] * 4, (u.h || 25) + 9, u.pos[1] + d[1] * 4], pri: 1, src: u,   // ★v6.4
           detail: (u.name || ('コンセント No.' + u.no)) });
   });
   R.aircons.forEach(function (a) {
     if (!a.id) return;
     const d = outletInward(a.wallSide);
     add({ id: a.id, name: a.name || ('エアコン ' + a.no), kind: 'aircon', cls: 'nl-out', room: a.room,
-          pos: [a.pos[0] + d[0] * 13, a.bottomH ? a.bottomH + 13 : 218, a.pos[1] + d[1] * 13], pri: 2,
+          pos: [a.pos[0] + d[0] * 13, a.bottomH ? a.bottomH + 13 : 218, a.pos[1] + d[1] * 13], pri: 2, src: a,   // ★v6.4
           detail: (a.name || ('エアコン ' + a.no)) });
+  });
+  // ★v6.4 照明 L-: 3D には描画していない (天井ライト表現を v1.8 で削除) ので 直接クリックはできないが、
+  //         ID検索 (【L-01】等) で 種類・位置・取付高さ を出せるよう索引には載せる。ラベルは出さない。
+  (R.lights || []).forEach(function (l) {
+    if (!l.id) return;
+    add({ id: l.id, name: l.name || ('照明 ' + l.id), kind: 'light', cls: 'nl-out', room: l.room,
+          pos: [l.pos[0], CH - 6, l.pos[1]], pri: 1, minor: true, noLabel: true, src: l,
+          detail: (l.name || l.id) + ' / ' + (l.type === 'downlight' ? 'ダウンライト' : '引掛シーリング') });
   });
   return { anchors: anchors, byId: byId, byLabel: byLabel, walls: walls };
 }
@@ -5157,6 +5686,8 @@ function nameOfInfo(ud) {
   const idx = ensureNameIndex();
   if (!ud) return null;
   if (ud.nameId) return idx.byId[ud.nameId] || { id: ud.nameId, name: '' };   // 壁 (tagWallSegMeshes 済み)
+  if (ud.opId && idx.byId[ud.opId]) return idx.byId[ud.opId];   // ★v6.4 ドア/窓/開口 (枠・レール・戸袋等の付属部材も本体に寄せる)
+  if (ud.acId && idx.byId[ud.acId]) return idx.byId[ud.acId];   // ★v6.4 エアコン
   if (ud.kind === 'outlet' && ud.info && ud.info.no !== undefined) return idx.byId['C-' + String(ud.info.no).padStart(2, '0')] || null;
   const s = typeof ud.info === 'string' ? ud.info : (ud.info && ud.info.label);
   if (!s) return null;
@@ -5198,6 +5729,7 @@ function updateNameLabels() {
   for (let i = 0; i < idx.anchors.length; i++) {
     const a = idx.anchors[i];
     const isFocus = nameFocusId === a.id;
+    if (a.noLabel && !isFocus) continue;   // ★v6.4 3D実体の無い要素 (照明 L-) は ID検索時のみ
     if (!isFocus) {
       if (focusDk && a.room !== focusDk) continue;                       // 部屋ビューはその部屋だけ
       if (!focusDk && (a.pri < 2 || a.minor)) continue;                  // 全体ビューは小物・コンセントを省く
@@ -5354,6 +5886,21 @@ document.addEventListener('keydown', function (e) {
   else used = false;
   if (used) {
     e.preventDefault();
+    // ★v6.3 収納に入っている間は キャビティ内クランプで移動 (中のアイテム同士は衝突判定あり)
+    if (it.insideOf && workItems[it.insideOf]) {
+      const kh = workItems[it.insideOf], kc = openCavityOf(kh);
+      if (kc) {
+        const kwc = cavityWorld(kh, kc);
+        const kp = cavityClampPos(it, kh, kwc, it.x, it.z);
+        it.x = kp.x; it.z = kp.z; it.y = kwc.y0;
+        if (collidesAny(selectedItemId, it, kig.items)) { it.x = px; it.z = pz; return; }
+        setInsideLocal(kh, it);
+        const km = furnMeshes[selectedItemId];
+        if (km) syncItemMesh(km, it);
+        markDirty();
+        return;
+      }
+    }
     clampItem(it);
     if (blockedAny(selectedItemId, it, kig)) { it.x = px; it.z = pz; return; }   // ★v1.9 家具+壁+設備めり込み防止
     if (isMattressItem(it)) {                                               // ★v2.0 キー移動でもベッド床板面/床へ追従
@@ -5444,6 +5991,9 @@ function cleanItem(it) {
     // ★v6.2 insideOf=収納のオープン部 (ゴミ箱スペース) に収まっている相手の item id /
     //        stackLevel=載せている支持面のローカル高さ cm (ワゴン下棚 9.6 / 天面 68 等。null=一番上)
     insideOf: it.insideOf || null,
+    // ★v6.3 insideX/insideZ = 収納内でのローカル位置 (収納の向き基準 cm)。収納の中で動かせるようにしたので保存する
+    insideX: (it.insideX === undefined || it.insideX === null || it.insideX === '') ? null : Number(it.insideX),
+    insideZ: (it.insideZ === undefined || it.insideZ === null || it.insideZ === '') ? null : Number(it.insideZ),
     stackLevel: (it.stackLevel === undefined || it.stackLevel === null || it.stackLevel === '') ? null : Number(it.stackLevel)
   };
 }
