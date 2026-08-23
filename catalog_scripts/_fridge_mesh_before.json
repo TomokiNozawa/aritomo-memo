@@ -1,0 +1,248 @@
+[
+ {
+  "color": "#4b4d52",
+  "d": 69.9,
+  "h": 184.3,
+  "itemId": "imt5b7v9ghqg0",
+  "model": "R-HZC54Y XH",
+  "nParts": 13,
+  "name": "冷蔵庫 日立 HZC 540L",
+  "parts": [
+   {
+    "col": "4b4d52",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     92.15,
+     0
+    ],
+    "s": [
+     65,
+     184.3,
+     69.9,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "26282b",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     2.765,
+     35.15
+    ],
+    "s": [
+     63,
+     5.529,
+     1,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "333438",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     39.625,
+     35.3
+    ],
+    "s": [
+     63.5,
+     1.1,
+     0.8,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "333438",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     70.956,
+     35.3
+    ],
+    "s": [
+     63.5,
+     1.1,
+     0.8,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "333438",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     93.072,
+     35.3
+    ],
+    "s": [
+     63.5,
+     1.1,
+     0.8,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "333438",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     138.686,
+     35.3
+    ],
+    "s": [
+     1.1,
+     89.729,
+     0.8,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "333438",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     -6.5,
+     82.014,
+     35.3
+    ],
+    "s": [
+     1.1,
+     20.616,
+     0.8,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "33353a",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     -4,
+     138.686,
+     35.85
+    ],
+    "s": [
+     2.2,
+     65.685,
+     1.5,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "33353a",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     4,
+     138.686,
+     35.85
+    ],
+    "s": [
+     2.2,
+     65.685,
+     1.5,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "2b2d30",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     -18.85,
+     90.272,
+     35.45
+    ],
+    "s": [
+     20.8,
+     1.6,
+     1,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "2b2d30",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     13,
+     90.272,
+     35.45
+    ],
+    "s": [
+     32.5,
+     1.6,
+     1,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "2b2d30",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     68.156,
+     35.45
+    ],
+    "s": [
+     55,
+     1.6,
+     1,
+     null,
+     null
+    ],
+    "tex": false
+   },
+   {
+    "col": "2b2d30",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     36.825,
+     35.45
+    ],
+    "s": [
+     55,
+     1.6,
+     1,
+     null,
+     null
+    ],
+    "tex": false
+   }
+  ],
+  "w": 65
+ }
+]
