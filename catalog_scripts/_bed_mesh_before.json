@@ -1,0 +1,1262 @@
+[
+ {
+  "color": "#2b2b2b",
+  "d": 207.5,
+  "h": 66,
+  "itemId": "imt6jimmyf96d",
+  "model": "RASIK Aerus D / 03ダブル×04ブラック (B0D2KGTTMS)",
+  "nParts": 17,
+  "name": "Aerus すのこベッド ダブル ブラック",
+  "parts": [
+   {
+    "col": "2b2b2b",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     33,
+     -98.25
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     140,
+     66,
+     11,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "2b2b2b",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     64.5,
+     -88.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     140,
+     3,
+     8,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "1e1e1e",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     58,
+     -89.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     134,
+     4,
+     6,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "1e1e1e",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     -68.25,
+     16,
+     5.5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     3.5,
+     32,
+     196.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "1e1e1e",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     68.25,
+     16,
+     5.5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     3.5,
+     32,
+     196.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "1e1e1e",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     16,
+     102
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     133,
+     32,
+     3.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -77.071
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -49.714
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -22.357
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     32.357
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     59.714
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     87.071
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "46464e",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     37.625,
+     4.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     140,
+     11.25,
+     195,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "4a4a52",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     50.125,
+     4.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     137.5,
+     13.75,
+     192.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "b9b9bb",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     56.9,
+     -28.4
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     0.8,
+     2,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "b9b9bb",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     56.9,
+     37.9
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     132,
+     0.8,
+     2,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   }
+  ],
+  "w": 140
+ },
+ {
+  "color": "#35322f",
+  "d": 207.5,
+  "h": 66,
+  "itemId": "imt6jimzacmbc",
+  "model": "RASIK Aerus SS / 13セミシングル×04ブラック (B0D2K9YB7P)",
+  "nParts": 17,
+  "name": "Aerus すのこベッド セミシングル ブラック",
+  "parts": [
+   {
+    "col": "35322f",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     33,
+     -98.25
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     80,
+     66,
+     11,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "35322f",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     64.5,
+     -88.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     80,
+     3,
+     8,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "262422",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     58,
+     -89.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     74,
+     4,
+     6,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "262422",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     -38.25,
+     16,
+     5.5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     3.5,
+     32,
+     196.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "262422",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     38.25,
+     16,
+     5.5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     3.5,
+     32,
+     196.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "262422",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     16,
+     102
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     73,
+     32,
+     3.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -77.071
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     72,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -49.714
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     72,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -22.357
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     72,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     72,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     32.357
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     72,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     59.714
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     72,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bebebe",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     87.071
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     72,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "3b3e43",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     40.55,
+     6.25
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     85,
+     17.1,
+     198,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "3e4147",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     59.55,
+     6.25
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     82.5,
+     20.9,
+     195.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "b8b8b9",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     69.9,
+     -27.41
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     77,
+     0.8,
+     2,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "b8b8b9",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     69.9,
+     39.91
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     77,
+     0.8,
+     2,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   }
+  ],
+  "w": 80
+ },
+ {
+  "color": "#f3f1ec",
+  "d": 207.5,
+  "h": 66,
+  "itemId": "imt6jinb80d2k",
+  "model": "RASIK Aerus S / 01シングル×03ホワイト (B0D2KGT76N)",
+  "nParts": 17,
+  "name": "Aerus すのこベッド シングル ホワイト",
+  "parts": [
+   {
+    "col": "f3f1ec",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     33,
+     -98.25
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     97,
+     66,
+     11,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f3f1ec",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     64.5,
+     -88.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     97,
+     3,
+     8,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bab9b5",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     58,
+     -89.75
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     91,
+     4,
+     6,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bab9b5",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     -46.75,
+     16,
+     5.5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     3.5,
+     32,
+     196.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bab9b5",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     46.75,
+     16,
+     5.5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     3.5,
+     32,
+     196.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "bab9b5",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     16,
+     102
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     90,
+     32,
+     3.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f9f8f6",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -77.071
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f9f8f6",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -49.714
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f9f8f6",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     -22.357
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f9f8f6",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     5
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f9f8f6",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     32.357
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f9f8f6",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     59.714
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "f9f8f6",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     31,
+     87.071
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     2,
+     23.357,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "3b3e43",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     40.55,
+     6.25
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     97,
+     17.1,
+     198,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "3e4147",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     59.55,
+     6.25
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     94.5,
+     20.9,
+     195.5,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "b8b8b9",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     69.9,
+     -27.41
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     0.8,
+     2,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   },
+   {
+    "col": "b8b8b9",
+    "geo": "BoxGeometry",
+    "op": 1,
+    "p": [
+     0,
+     69.9,
+     39.91
+    ],
+    "r": [
+     0,
+     0,
+     0
+    ],
+    "s": [
+     89,
+     0.8,
+     2,
+     null,
+     null
+    ],
+    "tex": false,
+    "vis": true
+   }
+  ],
+  "w": 97
+ }
+]
