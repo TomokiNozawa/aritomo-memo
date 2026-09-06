@@ -10,7 +10,7 @@
 - `_sample.py` `_u.py` `_u2.py` `_grid.py` … カラー16進の画素実測とグリッド当て
 - `_dl.sh` `_sheet.py` `_search.py` `_links.py` … 公式画像の一括DL・コンタクトシート・商品URL探索
 
-,  … 公式商品画像 (各15〜16枚)。  … ミラーの設置例カット (全高124 / 138 の検算に使用)。
+- `img/dresser/` `img/chest/` … 公式商品画像 (各15〜16枚)。`_chk_mirror_sq.png` `_chk_mirror_rect.png` … ミラーの設置例カット (全高124 / 138 の検算に使用)
 同じものが Box にもある:
 `野沢用\claude\nozaROOM\catalog\商品公式資料\LOWYA_アユリナ_ドレッサーデスク120\` と
 `\LOWYA_アユリナ_チェスト80\` に README 付きで保存済み (色の実測領域もそこに記録)。
