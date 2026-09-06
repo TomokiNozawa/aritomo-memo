@@ -67,7 +67,7 @@ def main():
                        #   傾けた丸脚だと 実物より 1〜2mm 下に出て 接地判定を誤る (実頂点で測る)
                        " var bb=new THREE.Box3().setFromObject(g, true);"
                        " return {id:k,x:it.x,z:it.z,w:it.w,d:it.d,h:it.h,"
-                       "         top:Math.round((bb.max.y)*10)/10, bot:Math.round(bb.min.y*100)/100,"
+                       "         top:Math.round((bb.max.y)*100)/100, bot:Math.round(bb.min.y*100)/100,"
                        "         bw:Math.round((bb.max.x-bb.min.x)*10)/10,"
                        "         bd:Math.round((bb.max.z-bb.min.z)*10)/10};")
             drs = mjs("return __noza.drawers();")
@@ -78,8 +78,8 @@ def main():
                 print(u'      %s  %s' % (d['id'], d['label']))
             # 高さ方向の要所
             if '120' in c['name']:
-                ck(abs(info['top'] - 124.0) < 1.0,
-                   u'  ミラー上端 = 公式の設置例 124cm / 実際 %.1f' % info['top'])
+                ck(abs(info['top'] - 124.0) < 0.15,
+                   u'  ミラー上端 = 公式の設置例 124cm ちょうど / 実際 %.2f' % info['top'])
                 ck(abs(info['bw'] - 120) < 0.6, u'  外形幅 120 / 実際 %.1f' % info['bw'])
             else:
                 ck(abs(info['top'] - 99.5) < 0.3, u'  天面 = 99.5 / 実際 %.1f' % info['top'])
