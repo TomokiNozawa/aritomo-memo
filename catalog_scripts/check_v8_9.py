@@ -13,7 +13,7 @@ def ck(c, m):
 with sync_playwright() as p:
     br = p.chromium.launch(); pg = br.new_page(viewport={"width": 1100, "height": 780})
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
-    pg.goto("http://127.0.0.1:8777/room.html?debug=1")
+    pg.goto("" + os.environ.get("NOZA_URL", "http://127.0.0.1:8777/room.html") + "?debug=1")
     pg.wait_for_function("window.__noza && window.__noza.catFull", timeout=30000); pg.wait_for_timeout(900)
     mjs = lambda c: pg.evaluate("window.__noza.run(" + json.dumps("(function(){" + c + "})()") + ")")
     mjs("switchRoom('ldk'); return 1;")
