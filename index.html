@@ -251,6 +251,65 @@ body {
 .exp-check.checked { border-color: var(--accent-green); background: var(--accent-green); color: #fff; }
 .exp-check:hover { border-color: var(--accent-green); }
 
+/* 支出: 予定→確定の金額表示 */
+.exp-amount { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; font-size: 13px; font-weight: 700; }
+.exp-amount s { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+.exp-diff { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+.exp-diff.down { color: var(--accent-green); background: rgba(66,199,96,0.12); }
+.exp-diff.up { color: var(--accent-red); background: rgba(248,81,73,0.12); }
+.exp-unfixed { color: var(--accent-red); }
+.exp-sum-save { margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
+.exp-sum-save b { color: var(--accent-green); font-weight: 800; margin-left: 4px; }
+.exp-sum-save b.over { color: var(--accent-red); }
+.exp-sum-save .exp-unfixed { display: block; margin-top: 2px; }
+
+/* 支出: メモから予定額取り込みの案内 */
+.exp-import-banner {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 10px 12px;
+  border: 1px dashed var(--accent); border-radius: var(--radius); font-size: 12px; color: var(--text-secondary);
+}
+.exp-import-banner span { flex: 1; }
+.exp-import-row { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; }
+.exp-import-row .form-check { border: none; background: none; padding: 0; min-height: 32px; }
+.exp-import-row .form-check span { font-weight: 600; color: var(--text-primary); }
+.exp-import-note { font-size: 11px; color: var(--text-muted); margin: 2px 0 8px 28px; word-break: break-all; }
+.exp-import-row .form-row { margin-left: 28px; }
+.exp-import-row .form-group { margin-bottom: 0; }
+
+/* 支出: 購入済の合計計算モード */
+.exp-section-head { display: flex; align-items: center; gap: 6px; margin: 16px 0 8px; }
+.exp-section-head .section-title { margin: 0; flex: 1; }
+.exp-calc-btn {
+  min-height: 32px; padding: 4px 12px; border-radius: 16px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); font-size: 12px; font-weight: 500;
+  cursor: pointer; font-family: inherit; white-space: nowrap; transition: all var(--transition);
+}
+.exp-calc-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+.exp-calc-btn.primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.calc-check {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; padding: 0;
+  border: 2px solid var(--accent-blue); background: var(--bg-input);
+  display: flex; align-items: center; justify-content: center; position: relative;
+  cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; line-height: 1;
+  color: transparent; transition: all var(--transition);
+}
+.calc-check::after { content: ''; position: absolute; top: -11px; left: -11px; width: 44px; height: 44px; }
+.calc-check.on { background: var(--accent-blue); color: #fff; }
+.item-card.calc-on { border-color: var(--accent-blue); }
+.exp-calc-bar {
+  position: fixed; z-index: 790; left: 16px; right: 80px;
+  bottom: calc(64px + env(safe-area-inset-bottom)); min-height: 52px;
+  background: var(--bg-card); border: 2px solid var(--accent-blue); border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18); padding: 6px 12px;
+  display: flex; flex-direction: column; justify-content: center; font-size: 11px; color: var(--text-secondary);
+}
+.exp-calc-bar-main { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.exp-calc-bar-main b { font-size: 18px; font-weight: 800; color: var(--text-primary); }
+.exp-calc-bar-sub { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.exp-calc-bar-sub b { color: var(--text-primary); font-weight: 700; }
+.exp-calc-bar-sub b.save { color: var(--accent-green); }
+.exp-calc-bar-sub b.over { color: var(--accent-red); }
+
 .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
 .filter-bar.cats { margin-bottom: 8px; } /* カテゴリ行と購入状態行を近づける */
 .filter-chip {
@@ -490,6 +549,7 @@ body {
   .item-card:hover { background: var(--bg-card-hover); }
   .swipe-container:hover .pc-actions { display: flex; }
   .swipe-actions { display: none; }
+  .exp-calc-bar { left: 50%; right: auto; width: 460px; transform: translateX(-50%); }
 }
 @media (min-width: 1024px) {
   body { display: flex; }
@@ -513,6 +573,7 @@ body {
   .app-header { display: none !important; }
   .bottom-nav { display: none !important; }
   .fab { bottom: 24px; }
+  .exp-calc-bar { bottom: 24px; left: 224px; width: min(628px, calc(100% - 320px)); transform: none; } /* カード列(サイドナビ200+余白24、幅628)に揃える */
   .app-content { max-width: 700px; padding: 24px 24px 80px; }
 }
 .side-nav { display: none; }
@@ -1141,7 +1202,12 @@ function closeModal(e) {
   document.getElementById('modalOverlay').classList.remove('active');
   document.body.style.overflow = '';
 }
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  // モーダルが無い時の Esc は支出タブの計算モードを抜ける
+  if (!document.getElementById('modalOverlay').classList.contains('active') && currentTab === 'expenses' && expenseCalcMode) toggleCalcMode(false);
+  else closeModal();
+});
 
 // ── Add Modal ──
 function openAddModal() {
@@ -1317,25 +1383,102 @@ function expenseCat(key) {
 }
 function fmtYen(n) { return '¥' + (Number(n) || 0).toLocaleString('ja-JP'); }
 
+// 確定金額 (actualAmount) は未入力なら null。予定金額は amount。
+function expActual(e) {
+  return (e.actualAmount === undefined || e.actualAmount === null || e.actualAmount === '') ? null : (Number(e.actualAmount) || 0);
+}
+// 購入済は確定額 (未入力なら予定額)、未購入は予定額
+function expEffective(e) {
+  var a = expActual(e);
+  return (e.purchased && a !== null) ? a : (Number(e.amount) || 0);
+}
+function fmtDiff(d) { return (d > 0 ? '+' : d < 0 ? '-' : '±') + fmtYen(Math.abs(d)); }
+
+// ── 購入済の合計計算 (画面上だけの一時選択。DBには保存しない) ──
+var expenseCalcMode = false;
+var expenseCalcSel = {};
+
+function calcSelectedItems() {
+  return expensesData.filter(function(e) { return e.purchased && expenseCalcSel[e.id]; });
+}
+function toggleCalcMode(on) {
+  expenseCalcMode = on;
+  expenseCalcSel = {};
+  renderTab();
+}
+function toggleCalcSel(id) {
+  if (expenseCalcSel[id]) delete expenseCalcSel[id]; else expenseCalcSel[id] = true;
+  renderTab();
+}
+// 全選択は「今表示されている購入済」が対象 (カテゴリで絞ってから全選択できる)
+function calcSelectAll(ids) {
+  ids.forEach(function(id) { expenseCalcSel[id] = true; });
+  renderTab();
+}
+function calcClearAll() { expenseCalcSel = {}; renderTab(); }
+
+function renderCalcBar(items) {
+  var plan = 0, fixed = 0, fallback = 0;
+  items.forEach(function(e) {
+    var a = expActual(e);
+    plan += Number(e.amount) || 0;
+    if (a === null) { fixed += Number(e.amount) || 0; fallback++; } else fixed += a;
+  });
+  var diff = fixed - plan;
+  var html = '<div class="exp-calc-bar" role="status" aria-live="polite">';
+  html += '<div class="exp-calc-bar-main"><span>選択 ' + items.length + '件 の確定合計</span><b>' + fmtYen(fixed) + '</b></div>';
+  html += '<div class="exp-calc-bar-sub"><span>予定 <b>' + fmtYen(plan) + '</b></span>';
+  html += '<span>差額 <b class="' + (diff < 0 ? 'save' : diff > 0 ? 'over' : '') + '">' + fmtDiff(diff) + '</b></span>';
+  if (fallback) html += '<span class="exp-unfixed">確定未入力 ' + fallback + '件は予定額で計算</span>';
+  html += '</div></div>';
+  return html;
+}
+
 function renderExpenses(container) {
-  var total = 0, remain = 0, done = 0;
+  var total = 0, remain = 0, boughtPlan = 0, boughtFixed = 0;
+  var cmpPlan = 0, cmpFixed = 0, unfixed = 0;
   var catTotal = { moving: 0, furniture: 0, other: 0 };
   expensesData.forEach(function(e) {
     var amt = Number(e.amount) || 0;
+    var a = expActual(e);
     total += amt;
-    if (e.purchased) done += amt; else remain += amt;
+    if (e.purchased) {
+      boughtPlan += amt;
+      boughtFixed += expEffective(e);
+      if (a === null) unfixed++; else { cmpPlan += amt; cmpFixed += a; }
+    } else remain += amt;
     if (catTotal[e.category] === undefined) catTotal.other += amt; else catTotal[e.category] += amt;
   });
 
   // サマリー (カテゴリ別合計)
   var html = '<div class="exp-summary">';
   html += '<div class="exp-sum-main"><span class="exp-sum-label">予定合計</span><span class="exp-sum-total">' + fmtYen(total) + '</span></div>';
-  html += '<div class="exp-sum-sub"><span>未購入(残り予測) <b>' + fmtYen(remain) + '</b></span><span>購入済 <b>' + fmtYen(done) + '</b></span></div>';
+  html += '<div class="exp-sum-sub"><span>未購入(残り予測) <b>' + fmtYen(remain) + '</b></span><span>購入済(確定) <b>' + fmtYen(boughtFixed) + '</b></span></div>';
+  if (cmpPlan || cmpFixed || unfixed) {
+    var saved = cmpPlan - cmpFixed;
+    html += '<div class="exp-sum-save">';
+    if (cmpPlan || cmpFixed) {
+      html += '購入済 予定 ' + fmtYen(cmpPlan) + ' → 確定 ' + fmtYen(cmpFixed);
+      html += saved >= 0
+        ? ' / 値引き<b>' + fmtYen(saved) + (cmpPlan ? '（' + Math.round(saved / cmpPlan * 100) + '%）' : '') + '</b>'
+        : ' / 予定超過<b class="over">' + fmtYen(-saved) + '</b>';
+    }
+    if (unfixed) html += '<span class="exp-unfixed">確定未入力 ' + unfixed + '件</span>';
+    html += '</div>';
+  }
   html += '<div class="exp-sum-cats">';
   EXPENSE_CATS.forEach(function(c) {
     html += '<span class="exp-sum-cat">' + c.icon + ' ' + c.label + '<b>' + fmtYen(catTotal[c.key]) + '</b></span>';
   });
   html += '</div></div>';
+
+  // メモに予定額が書かれた購入済 (確定金額導入前のデータ) の取り込み案内
+  var importable = importCandidates().filter(function(c) { return c.plan !== null; });
+  if (importable.length && !expenseImportDismissed) {
+    html += '<div class="exp-import-banner"><span>メモに予定額が書かれた購入済が ' + importable.length + '件 あります。予定/確定金額に振り分けますか？</span>';
+    html += '<button class="exp-calc-btn primary" onclick="openExpenseImport()">確認する</button>';
+    html += '<button class="exp-calc-btn" onclick="expenseImportDismissed=true;renderTab()">閉じる</button></div>';
+  }
 
   // カテゴリフィルタ
   html += '<div class="filter-bar cats">';
@@ -1374,11 +1517,32 @@ function renderExpenses(container) {
   }
   notyet.forEach(function(e) { html += renderExpenseItem(e); });
   if (bought.length > 0) {
-    // 購入済のみ表示中は見出し不要 (全件が購入済なので)
-    if (expenseStatusFilter !== 'bought') html += '<div class="section-title">購入済み</div>';
+    html += '<div class="exp-section-head"><div class="section-title">' + (expenseStatusFilter !== 'bought' ? '購入済み' : '') + '</div>';
+    if (expenseCalcMode) {
+      var ids = bought.map(function(e) { return e.id; });
+      html += '<button class="exp-calc-btn" onclick="calcSelectAll([\'' + ids.join('\',\'') + '\'])">全選択</button>';
+      html += '<button class="exp-calc-btn" onclick="calcClearAll()">全解除</button>';
+      html += '<button class="exp-calc-btn primary" onclick="toggleCalcMode(false)">終了</button>';
+    } else {
+      html += '<button class="exp-calc-btn" onclick="toggleCalcMode(true)">🧮 合計を計算</button>';
+    }
+    html += '</div>';
     bought.forEach(function(e) { html += renderExpenseItem(e); });
   }
+  if (expenseCalcMode) {
+    html += '<div style="height:90px"></div>'; // 固定バーで最後のカードが隠れないように
+    html += renderCalcBar(calcSelectedItems());
+  }
   container.innerHTML = html;
+}
+
+function renderExpenseAmount(e) {
+  var plan = Number(e.amount) || 0;
+  var a = expActual(e);
+  if (a === null || a === plan) return '<span class="exp-amount">' + fmtYen(a === null ? plan : a) + '</span>';
+  var d = a - plan;
+  return '<span class="exp-amount"><s>' + fmtYen(plan) + '</s>' + fmtYen(a)
+    + '<span class="exp-diff ' + (d < 0 ? 'down' : 'up') + '">' + fmtDiff(d) + '</span></span>';
 }
 
 function renderExpenseItem(e) {
@@ -1386,19 +1550,28 @@ function renderExpenseItem(e) {
   var label = e.purchased ? '戻す' : '購入済';
   var klass = e.purchased ? 'uncomplete' : 'complete';
   var icon = e.purchased ? '↩' : '✓';
+  var calc = expenseCalcMode && e.purchased;
+  var sel = calc && !!expenseCalcSel[e.id];
   var html = '<div class="swipe-container" data-swipe="true">';
   html += '<div class="swipe-actions">';
   html += '<button class="swipe-action ' + klass + '" onclick="event.stopPropagation();togglePurchased(\'' + e.id + '\',' + !e.purchased + ')"><span class="swipe-action-icon">' + icon + '</span>' + label + '</button>';
   html += '<button class="swipe-action delete" onclick="event.stopPropagation();deleteExpense(\'' + e.id + '\')"><span class="swipe-action-icon">🗑</span>削除</button>';
   html += '</div>';
-  html += '<div class="item-card" onclick="openEditExpense(\'' + e.id + '\')">';
+  // 計算モード中の購入済カードは、タップで編集ではなく計算対象の選択を切り替える
+  html += '<div class="item-card' + (sel ? ' calc-on' : '') + '" onclick="' + (calc ? 'toggleCalcSel(\'' + e.id + '\')' : 'openEditExpense(\'' + e.id + '\')') + '">';
   html += '<div class="item-card-header">';
-  html += '<button class="exp-check' + (e.purchased ? ' checked' : '') + '"'
-    + ' onclick="event.stopPropagation();togglePurchased(\'' + e.id + '\',' + !e.purchased + ')"'
-    + ' aria-pressed="' + (e.purchased ? 'true' : 'false') + '"'
-    + ' aria-label="' + (e.purchased ? '未購入に戻す' : '購入済にする') + '">✓</button>';
+  if (calc) {
+    html += '<button class="calc-check' + (sel ? ' on' : '') + '"'
+      + ' onclick="event.stopPropagation();toggleCalcSel(\'' + e.id + '\')"'
+      + ' aria-pressed="' + (sel ? 'true' : 'false') + '" aria-label="合計に含める">✓</button>';
+  } else {
+    html += '<button class="exp-check' + (e.purchased ? ' checked' : '') + '"'
+      + ' onclick="event.stopPropagation();togglePurchased(\'' + e.id + '\',' + !e.purchased + ')"'
+      + ' aria-pressed="' + (e.purchased ? 'true' : 'false') + '"'
+      + ' aria-label="' + (e.purchased ? '未購入に戻す' : '購入済にする') + '">✓</button>';
+  }
   html += '<div class="item-card-title' + (e.purchased ? ' checked' : '') + '">' + esc(e.name) + '</div>';
-  html += '<span style="font-size:13px;font-weight:700;white-space:nowrap;">' + fmtYen(e.amount) + '</span>';
+  html += renderExpenseAmount(e);
   html += '<div class="pc-actions">';
   html += '<button class="pc-action ' + klass + '" onclick="event.stopPropagation();togglePurchased(\'' + e.id + '\',' + !e.purchased + ')">' + label + '</button>';
   html += '<button class="pc-action delete" onclick="event.stopPropagation();confirmDelete(this,\'expense\',\'' + e.id + '\')">削除</button>';
@@ -1406,6 +1579,7 @@ function renderExpenseItem(e) {
   html += '<div class="item-card-meta">';
   html += '<span>' + cat.icon + ' ' + cat.label + '</span>';
   html += '<span>' + esc(e.createdBy || '') + '</span>';
+  if (e.purchased && expActual(e) === null) html += '<span class="exp-unfixed">確定未入力</span>';
   if (e.note) html += '<span>' + esc(e.note) + '</span>';
   html += '</div></div></div>';
   return html;
@@ -1413,14 +1587,24 @@ function renderExpenseItem(e) {
 
 function setExpenseFilter(f) { expenseFilter = f; renderTab(); }
 function setExpenseStatusFilter(f) { expenseStatusFilter = f; renderTab(); }
-function togglePurchased(id, val) { touchRecord('expenses', id, { purchased: val }); }
+function togglePurchased(id, val) {
+  if (!val) delete expenseCalcSel[id];
+  touchRecord('expenses', id, { purchased: val });
+}
+
+function expenseAmountFields(e) {
+  var a = e ? expActual(e) : null;
+  var html = '<div class="form-row"><div class="form-group"><label class="form-label">予定金額(円)</label><input class="form-input" id="fAmount" type="number" inputmode="numeric" placeholder="0"' + (e ? ' value="' + (Number(e.amount) || 0) + '"' : '') + '></div>';
+  html += '<div class="form-group"><label class="form-label">確定金額(円)</label><input class="form-input" id="fActual" type="number" inputmode="numeric" placeholder="買ったら入力"' + (a !== null ? ' value="' + a + '"' : '') + '></div></div>';
+  return html;
+}
 
 function openAddExpense() {
   var catOpts = '';
   EXPENSE_CATS.forEach(function(c) { catOpts += '<option value="' + c.key + '">' + c.icon + ' ' + c.label + '</option>'; });
   var html = '<div class="form-group"><label class="form-label">品目名</label><input class="form-input" id="fName" placeholder="例: 冷蔵庫 / 敷金・礼金"></div>';
-  html += '<div class="form-row"><div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
-  html += '<div class="form-group"><label class="form-label">予定金額(円)</label><input class="form-input" id="fAmount" type="number" inputmode="numeric" placeholder="0"></div></div>';
+  html += '<div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
+  html += expenseAmountFields(null);
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote" placeholder="メモ"></textarea></div>';
   html += '<div class="form-group"><label class="form-check"><input type="checkbox" id="fPurchased"><span>もう購入済み</span></label></div>';
   html += '<div class="modal-actions"><button class="btn-primary" onclick="saveExpense()">保存</button></div>';
@@ -1432,15 +1616,18 @@ function openAddExpense() {
 function saveExpense(id) {
   var name = document.getElementById('fName').value.trim();
   if (!name) return;
+  var actualRaw = document.getElementById('fActual').value.trim();
   var data = {
     name: name,
     category: document.getElementById('fCat').value,
     amount: Number(document.getElementById('fAmount').value) || 0,
+    actualAmount: actualRaw === '' ? null : (Number(actualRaw) || 0),
     note: document.getElementById('fNote').value.trim() || null
   };
   var chk = document.getElementById('fPurchased');
   if (chk) data.purchased = chk.checked;
   else if (!id) data.purchased = false; // 新規のみ既定false (更新時は既存フラグを維持)
+  if (!id && data.actualAmount === null) delete data.actualAmount;
   saveRecord('expenses', id, data, expensesData.find(function(x) { return x.id === id; }));
   closeModal();
 }
@@ -1451,8 +1638,8 @@ function openEditExpense(id) {
   var catOpts = '';
   EXPENSE_CATS.forEach(function(c) { catOpts += '<option value="' + c.key + '"' + (e.category === c.key ? ' selected' : '') + '>' + c.icon + ' ' + c.label + '</option>'; });
   var html = '<div class="form-group"><label class="form-label">品目名</label><input class="form-input" id="fName" value="' + esc(e.name) + '"></div>';
-  html += '<div class="form-row"><div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
-  html += '<div class="form-group"><label class="form-label">予定金額(円)</label><input class="form-input" id="fAmount" type="number" inputmode="numeric" value="' + (Number(e.amount) || 0) + '"></div></div>';
+  html += '<div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
+  html += expenseAmountFields(e);
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote">' + esc(e.note || '') + '</textarea></div>';
   html += '<div class="form-group"><label class="form-check"><input type="checkbox" id="fPurchased"' + (e.purchased ? ' checked' : '') + '><span>購入済み</span></label></div>';
   html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteExpense(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveExpense(\'' + id + '\')">更新</button></div>';
@@ -1460,7 +1647,84 @@ function openEditExpense(id) {
   openModal('支出予定を編集', html);
 }
 
-function deleteExpense(id) { db.ref('expenses/' + id).remove(); closeModal(); }
+function deleteExpense(id) { delete expenseCalcSel[id]; db.ref('expenses/' + id).remove(); closeModal(); }
+
+// ── メモ → 予定金額の取り込み ──
+// 確定金額の欄ができる前は、購入済の amount に実際の支払額を入れ、予定額はメモに書いていた。
+// メモから金額を読み取り「予定=メモの金額 / 確定=今の金額」に振り分ける。読み取りは推測なので、
+// 必ず一覧で確認・修正してから反映する (自動では書き込まない)。
+var expenseImportDismissed = false;
+
+// 「15万」「15.8万」「15万8000」「¥150,000」「150000円」を円に。100円未満の数字 (個数等) は無視。
+function parseYenTokens(text) {
+  var s = String(text || '').replace(/[０-９．，]/g, function(ch) {
+    return ch === '．' ? '.' : ch === '，' ? ',' : String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+  });
+  var re = /(\d[\d,]*(?:\.\d+)?)\s*万\s*(\d[\d,]*)?|[¥￥]?\s*(\d[\d,]*)\s*円?/g;
+  var out = [], m;
+  while ((m = re.exec(s))) {
+    var v;
+    if (m[1]) v = Math.round(parseFloat(m[1].replace(/,/g, '')) * 10000) + (m[2] ? Number(m[2].replace(/,/g, '')) : 0);
+    else v = Number(m[3].replace(/,/g, ''));
+    if (v >= 100) out.push({ value: v, index: m.index });
+  }
+  return { text: s, tokens: out };
+}
+// 「予定/予算/見積/想定/定価/当初/元」の直後にある金額を優先。無ければ金額が1つだけの時のみ採用。
+function parsePlannedFromNote(note) {
+  var p = parseYenTokens(note);
+  if (!p.tokens.length) return null;
+  var kw = /(予定|予算|見積|想定|定価|当初|元値|元)/g, k, best = null;
+  while ((k = kw.exec(p.text))) {
+    var after = k.index + k[0].length;
+    for (var i = 0; i < p.tokens.length; i++) {
+      if (p.tokens[i].index >= after && p.tokens[i].index - after <= 6) { best = p.tokens[i].value; break; }
+    }
+    if (best !== null) return best;
+  }
+  return p.tokens.length === 1 ? p.tokens[0].value : null;
+}
+// 対象: 購入済で確定金額が未入力、かつメモに金額らしき数字がある品目
+function importCandidates() {
+  return expensesData.filter(function(e) {
+    return e.purchased && expActual(e) === null && e.note && parseYenTokens(e.note).tokens.length;
+  }).map(function(e) { return { e: e, plan: parsePlannedFromNote(e.note) }; });
+}
+
+function openExpenseImport() {
+  var cands = importCandidates();
+  if (!cands.length) return;
+  var html = '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">メモから読み取った予定額と、今入っている金額(=確定額)です。違っていたら直してから反映してください。メモはそのまま残ります。</div>';
+  cands.forEach(function(c) {
+    var id = c.e.id;
+    html += '<div class="exp-import-row" data-id="' + id + '">';
+    html += '<label class="form-check"><input type="checkbox" class="imp-chk"' + (c.plan !== null ? ' checked' : '') + ' onchange="updateImportCount()"><span>' + esc(c.e.name) + '</span></label>';
+    html += '<div class="exp-import-note">メモ: ' + esc(c.e.note) + (c.plan === null ? '（予定額を特定できず）' : '') + '</div>';
+    html += '<div class="form-row"><div class="form-group"><label class="form-label">予定金額</label><input class="form-input imp-plan" type="number" inputmode="numeric" value="' + (c.plan !== null ? c.plan : '') + '"></div>';
+    html += '<div class="form-group"><label class="form-label">確定金額</label><input class="form-input imp-actual" type="number" inputmode="numeric" value="' + (Number(c.e.amount) || 0) + '"></div></div>';
+    html += '</div>';
+  });
+  html += '<div class="modal-actions"><button class="btn-secondary" onclick="closeModal()">キャンセル</button><button class="btn-primary" id="impApply" onclick="applyExpenseImport()">反映</button></div>';
+  openModal('メモから予定額を取り込む', html);
+  updateImportCount();
+}
+function updateImportCount() {
+  var n = document.querySelectorAll('#modalBody .imp-chk:checked').length;
+  var b = document.getElementById('impApply');
+  if (b) { b.textContent = '選択した ' + n + '件を反映'; b.disabled = !n; b.style.opacity = n ? '' : '0.5'; }
+}
+function applyExpenseImport() {
+  document.querySelectorAll('#modalBody .exp-import-row').forEach(function(row) {
+    if (!row.querySelector('.imp-chk').checked) return;
+    var plan = row.querySelector('.imp-plan').value.trim();
+    var actual = row.querySelector('.imp-actual').value.trim();
+    if (plan === '' || actual === '') return; // どちらか空欄の行は反映しない
+    var id = row.getAttribute('data-id');
+    var before = expensesData.find(function(x) { return x.id === id; });
+    saveRecord('expenses', id, { amount: Number(plan) || 0, actualAmount: Number(actual) || 0 }, before);
+  });
+  closeModal();
+}
 
 // ── Free Memo ──
 function renderMemo(container) {
@@ -1519,7 +1783,7 @@ var DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
 // 履歴に残す項目と表示名 (ノード別)。ここに無い項目は履歴に出さない。
 var HISTORY_FIELDS = {
-  expenses: { name: '品目名', category: 'カテゴリ', amount: '予定金額', note: 'メモ', purchased: '購入済' },
+  expenses: { name: '品目名', category: 'カテゴリ', amount: '予定金額', actualAmount: '確定金額', note: 'メモ', purchased: '購入済' },
   list:     { name: '内容', category: '種別', date: '日付', note: 'メモ' },
   events:   { title: 'タイトル', date: '日付', time: '時刻', placeRef: '場所', memo: 'メモ' },
   places:   { name: '場所名', summary: '概要', note: 'メモ', achievedDate: '達成日' }
@@ -1539,7 +1803,7 @@ function fmtStamp(ms) {
 }
 function histValue(node, field, val) {
   if (val === undefined || val === null || val === '') return '(なし)';
-  if (field === 'amount') return fmtYen(val);
+  if (field === 'amount' || field === 'actualAmount') return fmtYen(val);
   if (field === 'purchased') return val ? '購入済' : '未購入';
   if (field === 'date' || field === 'achievedDate') return fmtHistDate(val);
   if (field === 'category') {
