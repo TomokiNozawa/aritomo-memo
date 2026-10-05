@@ -235,6 +235,8 @@ body {
 .exp-sum-cats { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-light); font-size: 12px; color: var(--text-secondary); }
 .exp-sum-cat { display: inline-flex; align-items: center; gap: 4px; }
 .exp-sum-cat b { color: var(--text-primary); font-weight: 700; margin-left: 2px; }
+.exp-sum-payers { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light); font-size: 12px; color: var(--text-secondary); }
+.exp-sum-payers-label { width: 100%; font-size: 11px; color: var(--text-muted); }
 
 /* 支出: 購入済チェックボックス (カード上でタップしてトグル) */
 .exp-check {
@@ -311,7 +313,7 @@ body {
 .exp-calc-bar-sub b.over { color: var(--accent-red); }
 
 .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
-.filter-bar.cats { margin-bottom: 8px; } /* カテゴリ行と購入状態行を近づける */
+.filter-bar.cats, .filter-bar.status { margin-bottom: 8px; } /* カテゴリ行と購入状態行を近づける */
 .filter-chip {
   padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
   background: var(--bg-card); color: var(--text-secondary); font-size: 12px; font-weight: 500;
@@ -701,6 +703,7 @@ var listData = [], eventsData = [], placesData = [], expensesData = [];
 var memoData = { ariha: '', asahi: '' };
 var expenseFilter = 'all';
 var expenseStatusFilter = 'all'; // all | notyet | bought
+var expensePayerFilter = 'all'; // all | __none (未設定) | 支払者名
 var memoSaveTimer = null;
 var listFilter = 'all';
 var calHideCompleted = true;
@@ -1394,6 +1397,43 @@ function expEffective(e) {
 }
 function fmtDiff(d) { return (d > 0 ? '+' : d < 0 ? '-' : '±') + fmtYen(Math.abs(d)); }
 
+// ── 支払者 ──
+// 選択肢 = 既定 + 品目に保存済みの支払者 (手動追加した名前は品目に保存された時点で選択肢に残る)
+var PAYER_DEFAULTS = ['Amazon', 'Gold NL', '有彩'];
+var PAYER_NONE = '__none';
+var PAYER_ADD = '__add';
+function expPayer(e) { return (e.payer === undefined || e.payer === null) ? '' : String(e.payer).trim(); }
+function payerOptions() {
+  var list = PAYER_DEFAULTS.slice();
+  expensesData.forEach(function(e) {
+    var p = expPayer(e);
+    if (p && list.indexOf(p) < 0) list.push(p);
+  });
+  return list;
+}
+function onPayerSelect(sel) {
+  var row = document.getElementById('fPayerNewRow');
+  row.style.display = sel.value === PAYER_ADD ? '' : 'none';
+  if (sel.value === PAYER_ADD) setTimeout(function() { document.getElementById('fPayerNew').focus(); }, 30);
+}
+function expensePayerField(e) {
+  var cur = e ? expPayer(e) : '';
+  var html = '<div class="form-group"><label class="form-label">支払者</label><select class="form-select" id="fPayer" onchange="onPayerSelect(this)">';
+  html += '<option value=""' + (cur === '' ? ' selected' : '') + '>未設定</option>';
+  payerOptions().forEach(function(p) {
+    html += '<option value="' + esc(p) + '"' + (cur === p ? ' selected' : '') + '>' + esc(p) + '</option>';
+  });
+  html += '<option value="' + PAYER_ADD + '">＋ 支払者を追加…</option></select></div>';
+  html += '<div class="form-group" id="fPayerNewRow" style="display:none"><label class="form-label">追加する支払者</label><input class="form-input" id="fPayerNew" placeholder="例: 朝輝 / 楽天カード"></div>';
+  return html;
+}
+function readPayerField() {
+  var v = document.getElementById('fPayer').value;
+  if (v === PAYER_ADD) v = document.getElementById('fPayerNew').value.trim();
+  return v || null;
+}
+function setExpensePayerFilter(f) { expensePayerFilter = f; renderTab(); }
+
 // ── 購入済の合計計算 (画面上だけの一時選択。DBには保存しない) ──
 var expenseCalcMode = false;
 var expenseCalcSel = {};
@@ -1470,7 +1510,24 @@ function renderExpenses(container) {
   EXPENSE_CATS.forEach(function(c) {
     html += '<span class="exp-sum-cat">' + c.icon + ' ' + c.label + '<b>' + fmtYen(catTotal[c.key]) + '</b></span>';
   });
-  html += '</div></div>';
+  html += '</div>';
+  // 支払者別 (購入済は確定額・未購入は予定額で集計)
+  var payerTotal = {}, noneTotal = 0, noneCount = 0;
+  expensesData.forEach(function(e) {
+    var p = expPayer(e);
+    if (!p) { noneTotal += expEffective(e); noneCount++; return; }
+    payerTotal[p] = (payerTotal[p] || 0) + expEffective(e);
+  });
+  var payersUsed = payerOptions().filter(function(p) { return payerTotal[p] !== undefined; });
+  if (payersUsed.length) {
+    html += '<div class="exp-sum-payers"><span class="exp-sum-payers-label">💳 支払者別（購入済は確定・未購入は予定）</span>';
+    payersUsed.forEach(function(p) {
+      html += '<span class="exp-sum-cat">' + esc(p) + '<b>' + fmtYen(payerTotal[p]) + '</b></span>';
+    });
+    if (noneCount) html += '<span class="exp-sum-cat">未設定 ' + noneCount + '件<b>' + fmtYen(noneTotal) + '</b></span>';
+    html += '</div>';
+  }
+  html += '</div>';
 
   // メモに予定額が書かれた購入済 (確定金額導入前のデータ) の取り込み案内
   var importable = importCandidates().filter(function(c) { return c.plan !== null; });
@@ -1497,10 +1554,23 @@ function renderExpenses(container) {
   html += '<button class="filter-chip' + (expenseStatusFilter === 'bought' ? ' active' : '') + '" onclick="setExpenseStatusFilter(\'bought\')">✓ 購入済 ' + allBought + '</button>';
   html += '</div>';
 
+  // 支払者フィルタ
+  var payerChips = payerOptions().map(function(p) { return { key: p, label: '💳 ' + p }; });
+  if (expensesData.some(function(e) { return !expPayer(e); })) payerChips.push({ key: PAYER_NONE, label: '未設定' });
+  if (expensePayerFilter !== 'all' && !payerChips.some(function(c) { return c.key === expensePayerFilter; })) expensePayerFilter = 'all';
+  html += '<div class="filter-bar payer">';
+  html += '<button class="filter-chip' + (expensePayerFilter === 'all' ? ' active' : '') + '" onclick="setExpensePayerFilter(\'all\')">支払者 全て</button>';
+  payerChips.forEach(function(c) {
+    html += '<button class="filter-chip' + (expensePayerFilter === c.key ? ' active' : '') + '" data-payer="' + esc(c.key) + '" onclick="setExpensePayerFilter(this.dataset.payer)">' + esc(c.label) + '</button>';
+  });
+  html += '</div>';
+
   var filtered = expensesData.filter(function(e) {
     if (expenseFilter !== 'all' && e.category !== expenseFilter) return false;
     if (expenseStatusFilter === 'notyet' && e.purchased) return false;
     if (expenseStatusFilter === 'bought' && !e.purchased) return false;
+    if (expensePayerFilter === PAYER_NONE && expPayer(e)) return false;
+    if (expensePayerFilter !== 'all' && expensePayerFilter !== PAYER_NONE && expPayer(e) !== expensePayerFilter) return false;
     return true;
   });
   var notyet = filtered.filter(function(e) { return !e.purchased; });
@@ -1578,6 +1648,7 @@ function renderExpenseItem(e) {
   html += '</div></div>';
   html += '<div class="item-card-meta">';
   html += '<span>' + cat.icon + ' ' + cat.label + '</span>';
+  if (expPayer(e)) html += '<span>💳 ' + esc(expPayer(e)) + '</span>';
   html += '<span>' + esc(e.createdBy || '') + '</span>';
   if (e.purchased && expActual(e) === null) html += '<span class="exp-unfixed">確定未入力</span>';
   if (e.note) html += '<span>' + esc(e.note) + '</span>';
@@ -1605,6 +1676,7 @@ function openAddExpense() {
   var html = '<div class="form-group"><label class="form-label">品目名</label><input class="form-input" id="fName" placeholder="例: 冷蔵庫 / 敷金・礼金"></div>';
   html += '<div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
   html += expenseAmountFields(null);
+  html += expensePayerField(null);
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote" placeholder="メモ"></textarea></div>';
   html += '<div class="form-group"><label class="form-check"><input type="checkbox" id="fPurchased"><span>もう購入済み</span></label></div>';
   html += '<div class="modal-actions"><button class="btn-primary" onclick="saveExpense()">保存</button></div>';
@@ -1622,12 +1694,14 @@ function saveExpense(id) {
     category: document.getElementById('fCat').value,
     amount: Number(document.getElementById('fAmount').value) || 0,
     actualAmount: actualRaw === '' ? null : (Number(actualRaw) || 0),
-    note: document.getElementById('fNote').value.trim() || null
+    note: document.getElementById('fNote').value.trim() || null,
+    payer: readPayerField()
   };
   var chk = document.getElementById('fPurchased');
   if (chk) data.purchased = chk.checked;
   else if (!id) data.purchased = false; // 新規のみ既定false (更新時は既存フラグを維持)
   if (!id && data.actualAmount === null) delete data.actualAmount;
+  if (!id && data.payer === null) delete data.payer;
   saveRecord('expenses', id, data, expensesData.find(function(x) { return x.id === id; }));
   closeModal();
 }
@@ -1640,6 +1714,7 @@ function openEditExpense(id) {
   var html = '<div class="form-group"><label class="form-label">品目名</label><input class="form-input" id="fName" value="' + esc(e.name) + '"></div>';
   html += '<div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="fCat">' + catOpts + '</select></div>';
   html += expenseAmountFields(e);
+  html += expensePayerField(e);
   html += '<div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="fNote">' + esc(e.note || '') + '</textarea></div>';
   html += '<div class="form-group"><label class="form-check"><input type="checkbox" id="fPurchased"' + (e.purchased ? ' checked' : '') + '><span>購入済み</span></label></div>';
   html += '<div class="modal-actions"><button class="btn-danger" onclick="deleteExpense(\'' + id + '\')">削除</button><button class="btn-primary" onclick="saveExpense(\'' + id + '\')">更新</button></div>';
@@ -1783,7 +1858,7 @@ var DOW = ['日', '月', '火', '水', '木', '金', '土'];
 
 // 履歴に残す項目と表示名 (ノード別)。ここに無い項目は履歴に出さない。
 var HISTORY_FIELDS = {
-  expenses: { name: '品目名', category: 'カテゴリ', amount: '予定金額', actualAmount: '確定金額', note: 'メモ', purchased: '購入済' },
+  expenses: { name: '品目名', category: 'カテゴリ', amount: '予定金額', actualAmount: '確定金額', note: 'メモ', purchased: '購入済', payer: '支払者' },
   list:     { name: '内容', category: '種別', date: '日付', note: 'メモ' },
   events:   { title: 'タイトル', date: '日付', time: '時刻', placeRef: '場所', memo: 'メモ' },
   places:   { name: '場所名', summary: '概要', note: 'メモ', achievedDate: '達成日' }
